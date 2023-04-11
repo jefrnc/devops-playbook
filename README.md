@@ -10,8 +10,8 @@ This repository contains a detailed guide on how to implement DevOps in your org
 - Monitoring and Logging
 - Security
 - Collaboration and Communication
-- [DevOps Performance Metrics](DevOps Performance Metrics.md)
-- AI and Machine Learning in DevOps
+- [DevOps Performance Metrics](./DevOps%20Performance%20Metrics.md)
+- [AI and Machine Learning in DevOps](./AI%20and%20Machine%20Learning%20in%20DevOps.md)
 - Blockchain and Distributed Ledger Technologies in DevOps
 - Serverless Architectures
 - Microservices and Containerization
