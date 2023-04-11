@@ -78,24 +78,24 @@ This reduction in lead time has allowed AgileSoft to be more responsive to custo
 
 This real-world example demonstrates the importance of measuring lead time, allowing organizations like AgileSoft to enhance their development process and deliver better products to their customers more quickly.
 
+## MTTR (Mean Time to Resolve): An In-Depth Look with a Real-World Example
 
-**********
-
-MTTR (Mean Time to Resolve): An In-Depth Look with a Real-World Example
-
-Definition:
+### Definition
 MTTR (Mean Time to Resolve) is a metric that helps us determine the amount of time it takes to recover from a production failure.
 
-Objective:
+### Objective
 The objective is to minimize this value as much as possible to reduce the recovery time from a production failure. It is recommended that this value be within the order of hours.
 
-How to Measure:
+### How to Measure
+
 MTTR is measured from the time the error is reported until the production error is resolved. It starts from the incident (reported failure), proceeds with the corrective task, and finally ends with the resolution in production.
 
-Representation:
+### Representation
+
 MTTR is represented as the total time of unplanned maintenance and the total number of times the failure was repaired. For example: "Total time of unplanned maintenance" = 44 hours, "Total number of times the failure was repaired" = 6, MTTR = 7.3 hours. It is measured over a period of 30 days, after which the values are evaluated to determine if they have increased or decreased (trend).
 
-Real-World Example:
+### Real-World Example
+
 Let's take a look at a web hosting company called SwiftHost. They provide hosting services for various clients, and minimizing downtime is crucial for their business. Prior to implementing DevOps practices, their MTTR was around 12 hours, meaning it took them half a day on average to recover from a production failure.
 
 After adopting DevOps practices and improving their incident management processes, SwiftHost managed to reduce their MTTR significantly. Now, their total time of unplanned maintenance is 36 hours, and the total number of times the failure was repaired is 6, resulting in an MTTR of 6 hours.
@@ -104,23 +104,24 @@ This reduction in MTTR has allowed SwiftHost to recover from production failures
 
 This real-world example highlights the importance of measuring MTTR, enabling organizations like SwiftHost to improve their incident management processes and minimize the impact of production failures on their customers.
 
-**********
+## Change Failure Rate: An In-Depth Look with a Real-World Example
 
-Change Failure Rate: An In-Depth Look with a Real-World Example
-
-Definition:
+### Definition
 Change Failure Rate is a measure of the frequency of failures that occur during deployments to production.
 
-Objective:
+### Objective
 The goal is to reduce the failure rate in production deployments by validating both the tests performed on the product and the quality issues throughout the development and production deployment cycle.
 
-How to Measure:
+### How to Measure
+
 Change Failure Rate is measured by tracking each deployment and then taking the proportion of each one that has been successful or unsuccessful over time. It can also be measured by taking the total number of failed deployments divided by the total number of deployments (deployment frequency).
 
-Representation:
+### Representation
+
 Change Failure Rate is represented as the total number of daily implementation failures, weekly implementation failures, and monthly implementation failures. For example: "Total daily failures" = 2, "Total weekly failures" = 4, "Total monthly failures" = 6.
 
-Real-World Example:
+### Real-World Example
+
 Let's consider an e-commerce company called ShopEase. In the past, their Change Failure Rate was relatively high, with frequent production deployment failures causing disruption to their services and impacting customer satisfaction.
 
 After adopting DevOps practices and implementing more rigorous testing and quality assurance processes, ShopEase managed to reduce their Change Failure Rate. Now, their total daily failures have dropped to 1, their total weekly failures to 3, and their total monthly failures to 5.
@@ -129,24 +130,23 @@ This reduction in Change Failure Rate has allowed ShopEase to deploy updates and
 
 By continuously measuring and working to optimize their Change Failure Rate, ShopEase can ensure that their development and deployment processes remain efficient, stable, and reliable, minimizing the risk of production failures and their impact on customers. This real-world example underscores the importance of measuring Change Failure Rate, helping organizations like ShopEase improve their development and deployment processes to better serve their customers.
 
+## Deployment Time: An In-Depth Look with a Real-World Example
 
-**********
-
-Deployment Time: An In-Depth Look with a Real-World Example
-
-Definition:
+### Definition
 Deployment Time is a metric that helps us determine the time it takes to deploy an implementation in production.
 
-Objective:
+### Objective
 The objective of this metric is to understand the time it takes for a product to be deployed (in production) and identify any issues within all stages and processes of the product's deployment. The more automated and fewer approval stages (that generate bottlenecks) in the development cycle, the higher the value of this metric.
 
-How to Measure:
+### How to Measure
 Deployment Time is measured by calculating the time it takes for the product to be deployed in production. A deployment is considered complete once the product is running in production with new features, hotfixes, etc.
 
-Representation:
+### Representation
+
 Deployment Time is represented as a minimum daily value (minutes), maximum daily value (minutes), and average daily value (minutes). For example: "Minimum daily value (minutes)" = 5 minutes, "Maximum daily value (minutes)" = 15 minutes, "Average daily value (minutes)" = 10 minutes.
 
-Real-World Example:
+### Real-World Example
+
 Let's consider a mobile app development company called AppMakers. Previously, their Deployment Time was quite lengthy, taking up to 2 hours for a deployment to be completed. This slow deployment process made it difficult for them to respond quickly to customer needs and rapidly deliver new features and bug fixes.
 
 After adopting DevOps practices and streamlining their deployment process, AppMakers managed to reduce their Deployment Time significantly. Now, their minimum daily value is 5 minutes, their maximum daily value is 15 minutes, and their average daily value is 10 minutes.
@@ -155,24 +155,21 @@ This improvement in Deployment Time has allowed AppMakers to deploy updates and 
 
 This real-world example highlights the importance of measuring Deployment Time, enabling organizations like AppMakers to optimize their deployment processes and deliver a better experience for their customers.
 
+## MTTD (Mean Time to Detection): An In-Depth Look with a Real-World Example
 
-**********
-
-MTTD (Mean Time to Detection): An In-Depth Look with a Real-World Example
-
-Definition:
+### Definition:
 MTTD (Mean Time to Detection) is a metric that helps us identify problems in production. It allows us to understand the time without failures in the production environment.
 
-Objective:
+### Objective:
 The objective is to obtain a value that indicates the time it takes to detect a failure in a deployment made to production. This helps us understand the strength of our monitoring system for our product.
 
-How to Measure:
+### How to Measure:
 MTTD is measured by identifying when a failure in production is detected. This is composed of the following factors: the start time of the deployment (production) and the time since the first failure occurs.
 
-Representation:
+### Representation:
 MTTD is represented in hours or minutes, reflecting the average time it takes to detect a failure in production.
 
-Real-World Example:
+### Real-World Example:
 Let's consider a streaming service company called StreamNow. In the past, their Mean Time to Detection (MTTD) was relatively high, taking hours to detect issues in their production environment. This led to longer downtimes and a negative impact on their customer experience.
 
 After adopting DevOps practices and implementing a more robust monitoring system, StreamNow significantly reduced their MTTD. Now, their monitoring system can detect issues in production within minutes, allowing them to respond more quickly to potential problems.
@@ -181,25 +178,24 @@ This improvement in MTTD has allowed StreamNow to minimize downtime and improve 
 
 This real-world example emphasizes the importance of measuring MTTD, helping organizations like StreamNow to optimize their monitoring systems and deliver a better experience for their customers.
 
+## Customer Satisfaction: An In-Depth Look with a Real-World Example
 
-**********
-
-
-Customer Satisfaction: An In-Depth Look with a Real-World Example
-
-Definition:
+### Definition
 Customer Satisfaction is a metric that measures the overall happiness and satisfaction of customers with a product, service, or interaction. This metric helps companies understand their customers' needs and expectations, identify areas for improvement, and track the impact of changes made to enhance the customer experience.
 
-Objective:
+### Objective
 The objective of Customer Satisfaction is to maintain and improve customer happiness by understanding their needs, preferences, and pain points. This metric enables organizations to prioritize improvements and monitor the effectiveness of changes made to their products or services.
 
-How to Measure:
+### How to Measure
+
 Customer Satisfaction can be measured using various methods, such as surveys, feedback forms, ratings, and reviews. Common survey methods include Net Promoter Score (NPS), Customer Satisfaction Score (CSAT), and Customer Effort Score (CES). By collecting and analyzing customer feedback, companies can identify trends, pinpoint areas for improvement, and track changes in satisfaction levels over time.
 
-Representation:
+### Representation
+
 Customer Satisfaction is typically represented as a percentage, score, or rating. For example, NPS is represented by a score ranging from -100 to +100, while CSAT is represented by an average rating on a scale of 1 to 5 or 1 to 10.
 
-Real-World Example:
+### Real-World Example
+
 Let's consider an e-commerce company called ShopTrendy. In the past, they received numerous complaints regarding their website's user interface and shipping times. This led to a decline in customer satisfaction, resulting in lower repeat business and a negative impact on their brand reputation.
 
 To address these issues, ShopTrendy adopted DevOps practices, improved their website's user interface, and streamlined their shipping processes. They also implemented regular customer satisfaction surveys to gather feedback and monitor the impact of the changes made.
