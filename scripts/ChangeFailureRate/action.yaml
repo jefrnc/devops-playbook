@@ -1,0 +1,13 @@
+- name: Update DynamoDB with Deployment Status
+  run: |
+    # ... (Your existing deployment steps) ...
+    
+    # After successful deployment
+    node update_dynamodb.js --status success
+
+    # If deployment fails (use 'if' to conditionally run this step)
+    # node update_dynamodb.js --status failure
+  env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    AWS_REGION: ${{ secrets.AWS_REGION }}

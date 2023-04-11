@@ -1,0 +1,102 @@
+Resources:
+  DeploymentTimeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: DeploymentTimeTable
+      AttributeDefinitions:
+        - AttributeName: service
+          AttributeType: S
+        - AttributeName: task_definition_arn
+          AttributeType: S
+      KeySchema:
+        - AttributeName: service
+          KeyType: HASH
+        - AttributeName: task_definition_arn
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DeploymentTimeLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: DeploymentTimeLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DeploymentTimeTable"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+
+  DeploymentTimeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: DeploymentTimeLambda
+      Runtime: python3.9
+      Role: !GetAtt DeploymentTimeLambdaRole.Arn
+      Handler: lambda_function.lambda_handler
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from datetime import datetime
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('DeploymentTimeTable')
+
+          def lambda_handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+
+              service = event['detail']['service']
+              task_definition_arn = event['detail']['taskDefinitionArn']
+              start_time = datetime.fromisoformat(event['detail']['createdAt'])
+              end_time = datetime.fromisoformat(event['detail']['completedAt'])
+              deployment_time = (end_time - start_time).total_seconds()
+
+              response = table.put_item(
+                  Item={
+                      'service': service,
+                      'task_definition_arn': task_definition_arn,
+                      'start_time': start_time.isoformat(),
+                      'end_time': end_time.isoformat(),
+                      'deployment_time': deployment_time
+                  }
+              )
+
+              print(f"Stored deployment information: {response}")
+      Timeout: 10
+
+  DeploymentTimeEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: DeploymentTimeEventRule
+      EventPattern:
+        source:
+          - "aws.ecs"
+        detail-type:
+          - "ECS Service Action"
+        detail:
+          action:
+            - "STEADY_STATE"
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DeploymentTimeLambdaFunction.Arn
+          Id: DeploymentTimeLambdaFunctionTarget
+          RoleArn: !GetAtt DeploymentTimeLambdaRole.Arn

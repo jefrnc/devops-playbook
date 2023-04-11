@@ -1,0 +1,30 @@
+name: Example Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Notify API - Start
+      run: |
+        curl -X POST https://your-api-gateway-endpoint-url/prod/deployment-info -H "Content-Type: application/json" -d '{"stage": "inicio", "service_name": "my-service", "tag": "v1.2.3", "workflow_info": {"workflow_id": ${{ github.workflow_id }}, "run_id": ${{ github.run_id }}, "run_number": ${{ github.run_number }}}'
+
+    # ... Your build and test steps go here ...
+
+    - name: Notify API - Processing
+      run: |
+        curl -X POST https://your-api-gateway-endpoint-url/prod/deployment-info -H "Content-Type: application/json" -d '{"stage": "procesando", "service_name": "my-service", "tag": "v1.2.3", "workflow_info": {"workflow_id": ${{ github.workflow_id }}, "run_id": ${{ github.run_id }}, "run_number": ${{ github.run_number }}}'
+
+    # ... Your deployment steps go here ...
+
+    - name: Notify API - Finished
+      run: |
+        curl -X POST https://your-api-gateway-endpoint-url/prod/deployment-info -H "Content-Type: application/json" -d '{"stage": "finalizado", "service_name": "my-service", "tag": "v1.2.3", "workflow_info": {"workflow_id": ${{ github.workflow_id }}, "run_id": ${{ github.run_id }}, "run_number": ${{ github.run_number }}}'

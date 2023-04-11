@@ -1,0 +1,121 @@
+Resources:
+  DeploymentInfoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: DeploymentInfoTable
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DeploymentInfoLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: DeploymentInfoLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/DeploymentInfoTable"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+
+  DeploymentInfoLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: DeploymentInfoLambda
+      Runtime: python3.9
+      Role: !GetAtt DeploymentInfoLambdaRole.Arn
+      Handler: lambda_function.lambda_handler
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from uuid import uuid4
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('DeploymentInfoTable')
+
+          def lambda_handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+
+              stage = event['stage']
+              service_name = event['service_name']
+              tag = event['tag']
+              workflow_info = event['workflow_info']
+
+              response = table.put_item(
+                  Item={
+                      'id': str(uuid4()),
+                      'stage': stage,
+                      'service_name': service_name,
+                      'tag': tag,
+                      'workflow_info': workflow_info
+                  }
+              )
+
+              print(f"Stored deployment information: {response}")
+      Timeout: 10
+
+  DeploymentInfoApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: DeploymentInfoApi
+      Description: API to receive and store deployment info from GitHub workflows.
+
+  DeploymentInfoResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref DeploymentInfoApi
+      ParentId: !GetAtt DeploymentInfoApi.RootResourceId
+      PathPart: deployment-info
+
+  DeploymentInfoMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref DeploymentInfoApi
+      ResourceId: !Ref DeploymentInfoResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeploymentInfoLambdaFunction.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+
+  DeploymentInfoLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt DeploymentInfoLambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${DeploymentInfoApi}/*/*/deployment-info"
+
+  DeploymentInfoApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: DeploymentInfoMethod
+    Properties:
+      RestApiId: !Ref DeploymentInfoApi
+      StageName: prod
