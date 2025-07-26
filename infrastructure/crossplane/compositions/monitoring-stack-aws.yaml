@@ -1,0 +1,290 @@
+# AWS Composition for Monitoring Stack
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xmonitoringstacks.aws.observability.dora.io
+  labels:
+    provider: aws
+    service: monitoring
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: observability.dora.io/v1alpha1
+    kind: XMonitoringStack
+  
+  resources:
+    # Amazon Managed Prometheus Workspace
+    - name: amp-workspace
+      base:
+        apiVersion: amp.aws.upbound.io/v1beta1
+        kind: Workspace
+        spec:
+          forProvider:
+            alias: dora-metrics
+            tags:
+              Environment: production
+              Platform: dora
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "amp-dora-%s"
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.prometheusEndpoint
+          toFieldPath: status.endpoints.prometheus
+      connectionDetails:
+        - name: prometheus-endpoint
+          fromFieldPath: status.atProvider.prometheusEndpoint
+    
+    # Amazon Managed Grafana Workspace
+    - name: amg-workspace
+      base:
+        apiVersion: grafana.aws.upbound.io/v1beta1
+        kind: Workspace
+        spec:
+          forProvider:
+            accountAccessType: CURRENT_ACCOUNT
+            authenticationProviders:
+              - SAML
+            permissionType: CUSTOMER_MANAGED
+            workspaceDataSources:
+              - PROMETHEUS
+              - CLOUDWATCH
+            workspaceNotificationDestinations:
+              - SNS
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "amg-dora-%s"
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoints.grafana
+      connectionDetails:
+        - name: grafana-endpoint
+          fromFieldPath: status.atProvider.endpoint
+    
+    # IAM Role for Prometheus Remote Write
+    - name: amp-remote-write-role
+      base:
+        apiVersion: iam.aws.upbound.io/v1beta1
+        kind: Role
+        spec:
+          forProvider:
+            assumeRolePolicyDocument: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/OIDC_PROVIDER"
+                  },
+                  "Action": "sts:AssumeRoleWithWebIdentity",
+                  "Condition": {
+                    "StringEquals": {
+                      "OIDC_PROVIDER:sub": "system:serviceaccount:dora-system:prometheus"
+                    }
+                  }
+                }]
+              }
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "amp-remote-write-%s"
+    
+    # IAM Policy for Prometheus
+    - name: amp-remote-write-policy
+      base:
+        apiVersion: iam.aws.upbound.io/v1beta1
+        kind: Policy
+        spec:
+          forProvider:
+            policy: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "aps:RemoteWrite",
+                      "aps:DescribeWorkspace"
+                    ],
+                    "Resource": "*"
+                  }
+                ]
+              }
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "amp-policy-%s"
+    
+    # Role Policy Attachment
+    - name: amp-role-policy-attachment
+      base:
+        apiVersion: iam.aws.upbound.io/v1beta1
+        kind: RolePolicyAttachment
+        spec:
+          forProvider:
+            roleSelector:
+              matchControllerRef: true
+            policyArnSelector:
+              matchControllerRef: true
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+    
+    # Kubernetes Objects for Prometheus
+    - name: prometheus-config
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: prometheus-config
+                namespace: dora-system
+              data:
+                prometheus.yaml: |
+                  global:
+                    scrape_interval: 30s
+                    evaluation_interval: 30s
+                    external_labels:
+                      cluster: dora-platform
+                      environment: production
+                  
+                  remote_write:
+                    - url: https://aps-workspaces.us-east-1.amazonaws.com/workspaces/WORKSPACE_ID/api/v1/remote_write
+                      sigv4:
+                        region: us-east-1
+                      queue_config:
+                        max_samples_per_send: 1000
+                        max_shards: 200
+                        capacity: 2500
+                  
+                  scrape_configs:
+                    - job_name: 'dora-metrics'
+                      kubernetes_sd_configs:
+                        - role: pod
+                          namespaces:
+                            names:
+                              - dora-system
+                      relabel_configs:
+                        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                          action: keep
+                          regex: true
+                        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                          action: replace
+                          target_label: __metrics_path__
+                          regex: (.+)
+      patches:
+        - fromFieldPath: spec.parameters.clusterName
+          toFieldPath: spec.forProvider.manifest.data[prometheus.yaml]
+          transforms:
+            - type: string
+              string:
+                type: Regexp
+                regexp:
+                  match: "cluster: dora-platform"
+                  replace: "cluster: " + input
+    
+    # SNS Topic for Alerts
+    - name: alert-topic
+      base:
+        apiVersion: sns.aws.upbound.io/v1beta1
+        kind: Topic
+        spec:
+          forProvider:
+            displayName: "DORA Metrics Alerts"
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "dora-alerts-%s"
+    
+    # CloudWatch Log Group for monitoring logs
+    - name: monitoring-logs
+      base:
+        apiVersion: cloudwatchlogs.aws.upbound.io/v1beta1
+        kind: Group
+        spec:
+          forProvider:
+            retentionInDays: 7
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: spec.parameters.retentionDays
+          toFieldPath: spec.forProvider.retentionInDays
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "/aws/monitoring/dora-%s"
+    
+    # Helm Release for Prometheus Operator
+    - name: prometheus-operator
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            chart:
+              name: kube-prometheus-stack
+              repository: https://prometheus-community.github.io/helm-charts
+              version: "51.3.0"
+            namespace: dora-system
+            values:
+              prometheus:
+                prometheusSpec:
+                  serviceAccountName: prometheus
+                  remoteWrite:
+                    - url: "$(AMP_ENDPOINT)/api/v1/remote_write"
+                      sigv4:
+                        region: "$(AWS_REGION)"
+                  retention: 24h
+                  resources:
+                    requests:
+                      cpu: 500m
+                      memory: 2Gi
+                    limits:
+                      cpu: 2000m
+                      memory: 8Gi
+              grafana:
+                enabled: false  # Using Amazon Managed Grafana
+              alertmanager:
+                alertmanagerSpec:
+                  storage:
+                    volumeClaimTemplate:
+                      spec:
+                        accessModes: ["ReadWriteOnce"]
+                        resources:
+                          requests:
+                            storage: 10Gi
+      patches:
+        - fromFieldPath: spec.parameters.clusterName
+          toFieldPath: spec.forProvider.providerConfigRef.name

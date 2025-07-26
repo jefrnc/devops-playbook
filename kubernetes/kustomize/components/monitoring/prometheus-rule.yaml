@@ -1,0 +1,71 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dora-metrics-alerts
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: dora-metrics
+    interval: 30s
+    rules:
+    # Deployment Frequency Alerts
+    - alert: LowDeploymentFrequency
+      expr: |
+        sum(rate(dora_deployment_frequency[24h])) by (service) < 0.041
+      for: 24h
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Low deployment frequency for {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has less than 1 deployment per day"
+    
+    # Lead Time Alerts
+    - alert: HighLeadTime
+      expr: |
+        histogram_quantile(0.95, dora_lead_time_seconds) > 172800
+      for: 1h
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High lead time detected"
+        description: "95th percentile lead time is over 48 hours"
+    
+    # MTTR Alerts
+    - alert: HighMTTR
+      expr: |
+        avg(dora_mttr_seconds) by (service) > 1800
+      for: 30m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "High MTTR for {{ $labels.service }}"
+        description: "Average MTTR for {{ $labels.service }} exceeds 30 minutes"
+    
+    # Change Failure Rate Alerts
+    - alert: HighChangeFailureRate
+      expr: |
+        (sum(dora_failed_deployments) by (service) / sum(dora_total_deployments) by (service)) > 0.15
+      for: 1h
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "High change failure rate for {{ $labels.service }}"
+        description: "Change failure rate for {{ $labels.service }} is above 15%"
+    
+    # Operator Health Alerts
+    - alert: DORAOperatorDown
+      expr: |
+        up{job="dora-operator"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "DORA metrics operator is down"
+        description: "DORA metrics operator has been down for more than 5 minutes"

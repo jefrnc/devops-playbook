@@ -1,0 +1,94 @@
+# Lead Time for Changes metric configuration
+metric_name: lead_time_for_changes
+description: "The amount of time it takes for a commit to get into production"
+
+data_sources:
+  github:
+    enabled: true
+    api_endpoint: "https://api.github.com"
+    track_from:
+      - commit
+      - pull_request_merged
+    track_to:
+      - deployment_success
+  
+  gitlab:
+    enabled: true
+    api_endpoint: "https://gitlab.com/api/v4"
+    track_from:
+      - commit
+      - merge_request_merged
+    track_to:
+      - deployment_success
+  
+  git:
+    enabled: true
+    repositories:
+      - "/repos/*"
+    branch_pattern: "main|master|release/*"
+
+calculation:
+  # Measurement points
+  start_point: "commit_time"
+  end_point: "deployment_time"
+  
+  # Statistical calculations
+  percentiles:
+    - 50  # median
+    - 75
+    - 90
+    - 95
+    - 99
+  
+  # Time buckets for histogram
+  buckets_hours:
+    - 1
+    - 4
+    - 8
+    - 24
+    - 48
+    - 168  # 1 week
+  
+  # Filtering
+  exclude:
+    - hotfixes
+    - reverts
+    - merge_commits
+
+alerts:
+  - name: "lead_time_high"
+    condition: "p95_lead_time_hours > 48"
+    severity: "warning"
+    message: "95th percentile lead time exceeds 2 days"
+  
+  - name: "lead_time_increasing"
+    condition: "lead_time_trend > 1.2"
+    severity: "info"
+    message: "Lead time increasing by more than 20%"
+
+visualization:
+  primary_metric: "p50_lead_time_hours"
+  secondary_metrics:
+    - "p95_lead_time_hours"
+    - "mean_lead_time_hours"
+  
+  charts:
+    - type: "histogram"
+      title: "Lead Time Distribution"
+      x_axis: "Hours"
+      y_axis: "Count"
+    
+    - type: "line"
+      title: "Lead Time Trend"
+      x_axis: "Date"
+      y_axis: "Hours"
+
+export:
+  prometheus:
+    metrics:
+      - name: "dora_lead_time_seconds"
+        type: "histogram"
+        labels:
+          - service
+          - team
+          - change_type

@@ -1,0 +1,219 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dora-metrics-collector
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # DORA metrics tracking
+    dora.metrics/service: "metrics-collector"
+    dora.metrics/team: "platform-engineering"
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/jefrnc/devops-playbook
+    targetRevision: HEAD
+    path: deployments/kubernetes
+    
+    # Helm values
+    helm:
+      releaseName: dora-metrics
+      values: |
+        image:
+          repository: ghcr.io/jefrnc/dora-metrics-collector
+          tag: "1.0.0"
+        
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            interval: 30s
+        
+        config:
+          github:
+            organization: jefrnc
+          
+          deployment_frequency:
+            enabled: true
+            schedule: "*/15 * * * *"
+          
+          lead_time:
+            enabled: true
+            schedule: "0 */6 * * *"
+          
+          mttr:
+            enabled: true
+            schedule: "30 * * * *"
+          
+          change_failure_rate:
+            enabled: true
+            schedule: "0 0 * * *"
+        
+        persistence:
+          enabled: true
+          size: 10Gi
+          storageClass: gp2
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dora-metrics
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  revisionHistoryLimit: 10
+
+---
+# App of Apps pattern for managing multiple services
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-services
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/jefrnc/platform-config
+    targetRevision: HEAD
+    path: apps
+    
+    directory:
+      recurse: true
+      jsonnet: {}
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+---
+# ApplicationSet for multi-environment deployments
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dora-metrics-environments
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - cluster: dev
+        url: https://dev.k8s.local
+        namespace: dora-metrics-dev
+        values:
+          environment: development
+          replicas: 1
+      - cluster: staging
+        url: https://staging.k8s.local
+        namespace: dora-metrics-staging
+        values:
+          environment: staging
+          replicas: 2
+      - cluster: production
+        url: https://prod.k8s.local
+        namespace: dora-metrics-prod
+        values:
+          environment: production
+          replicas: 3
+  
+  template:
+    metadata:
+      name: '{{cluster}}-dora-metrics'
+      annotations:
+        dora.metrics/environment: '{{values.environment}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/jefrnc/devops-playbook
+        targetRevision: HEAD
+        path: deployments/kubernetes
+        helm:
+          values: |
+            environment: {{values.environment}}
+            replicas: {{values.replicas}}
+      destination:
+        server: '{{url}}'
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+
+---
+# Project for RBAC and resource isolation
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-engineering
+  namespace: argocd
+spec:
+  description: Platform engineering team services
+  
+  sourceRepos:
+  - 'https://github.com/jefrnc/*'
+  - 'https://charts.bitnami.com/bitnami'
+  
+  destinations:
+  - namespace: 'dora-metrics*'
+    server: '*'
+  - namespace: 'platform-*'
+    server: '*'
+  
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  
+  namespaceResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  
+  roles:
+  - name: admin
+    policies:
+    - p, proj:platform-engineering:admin, applications, *, platform-engineering/*, allow
+    - p, proj:platform-engineering:admin, repositories, *, *, allow
+    groups:
+    - platform-team
+  
+  - name: developer
+    policies:
+    - p, proj:platform-engineering:developer, applications, get, platform-engineering/*, allow
+    - p, proj:platform-engineering:developer, applications, sync, platform-engineering/*, allow
+    groups:
+    - developers

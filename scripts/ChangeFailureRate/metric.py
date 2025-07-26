@@ -1,3 +1,4 @@
+#\!/usr/bin/env python3
 import boto3
 
 dynamodb = boto3.resource('dynamodb')

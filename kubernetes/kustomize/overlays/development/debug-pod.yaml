@@ -1,0 +1,95 @@
+# Debug pod for development troubleshooting
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dora-debug
+  labels:
+    app: dora-debug
+    purpose: troubleshooting
+spec:
+  containers:
+  - name: debug
+    image: nicolaka/netshoot:latest
+    command: ["/bin/bash"]
+    args: ["-c", "while true; do sleep 30; done"]
+    env:
+    - name: DORA_NAMESPACE
+      value: dora-dev
+    - name: DEBUG_MODE
+      value: "true"
+    volumeMounts:
+    - name: scripts
+      mountPath: /scripts
+    - name: configs
+      mountPath: /configs
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  - name: k9s
+    image: quay.io/derailed/k9s:latest
+    stdin: true
+    tty: true
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  volumes:
+  - name: scripts
+    configMap:
+      name: debug-scripts
+      defaultMode: 0755
+  - name: configs
+    configMap:
+      name: dora-metrics-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debug-scripts
+data:
+  test-metrics.sh: |
+    #!/bin/bash
+    echo "Testing DORA metrics endpoints..."
+    
+    # Test deployment frequency
+    curl -X POST http://dora-operator:8080/metrics/deployment-frequency \
+      -H "Content-Type: application/json" \
+      -d '{"service": "test-app", "environment": "dev"}'
+    
+    # Test lead time
+    curl -X POST http://dora-operator:8080/metrics/lead-time \
+      -H "Content-Type: application/json" \
+      -d '{"commit_sha": "abc123", "service": "test-app"}'
+    
+    # Test MTTR
+    curl -X POST http://dora-operator:8080/metrics/mttr \
+      -H "Content-Type: application/json" \
+      -d '{"incident_id": "INC-001", "service": "test-app"}'
+    
+    # Test change failure rate
+    curl -X POST http://dora-operator:8080/metrics/change-failure-rate \
+      -H "Content-Type: application/json" \
+      -d '{"deployment_id": "deploy-001", "service": "test-app", "failed": false}'
+  
+  check-connections.sh: |
+    #!/bin/bash
+    echo "Checking service connectivity..."
+    
+    services=("dora-operator" "dora-dashboard" "prometheus" "grafana")
+    
+    for service in "${services[@]}"; do
+      echo "Testing $service..."
+      nc -zv $service 8080 2>&1 | grep -q "succeeded" && echo "✓ $service is reachable" || echo "✗ $service is not reachable"
+    done
+  
+  debug-logs.sh: |
+    #!/bin/bash
+    echo "Fetching logs from DORA components..."
+    
+    kubectl logs -n dora-dev -l app=dora-operator --tail=50
+    kubectl logs -n dora-dev -l app=dora-dashboard --tail=50
+    kubectl logs -n dora-dev -l app=dora-metrics --tail=50

@@ -1,0 +1,123 @@
+# Change Failure Rate metric configuration
+metric_name: change_failure_rate
+description: "The percentage of deployments causing a failure in production"
+
+data_sources:
+  deployments:
+    github:
+      enabled: true
+      api_endpoint: "https://api.github.com"
+      deployment_environments: ["production", "prod"]
+    
+    gitlab:
+      enabled: true
+      api_endpoint: "https://gitlab.com/api/v4"
+      deployment_environments: ["production"]
+    
+    argocd:
+      enabled: true
+      api_endpoint: "argocd-server.argocd:80"
+      application_filter: "*-production"
+  
+  failures:
+    rollbacks:
+      enabled: true
+      sources:
+        - github_revert_pr
+        - gitlab_revert_mr
+        - argocd_rollback
+        - helm_rollback
+    
+    incidents:
+      enabled: true
+      sources:
+        - pagerduty
+        - opsgenie
+      time_window: "1h"  # Link incidents within 1 hour of deployment
+      severity_filter: ["critical", "high"]
+    
+    failed_deployments:
+      enabled: true
+      sources:
+        - github_deployment_status
+        - gitlab_deployment_status
+        - jenkins_build_result
+      status_filter: ["failure", "error"]
+
+calculation:
+  # Time windows for rate calculation
+  windows:
+    - "24h"
+    - "7d"
+    - "30d"
+  
+  # Formula: (failed_changes / total_changes) * 100
+  failure_criteria:
+    - rollback_within: "24h"
+    - incident_within: "1h"
+    - deployment_failed: true
+  
+  # Minimum deployments for valid calculation
+  minimum_deployments: 10
+  
+  # Group by dimensions
+  group_by:
+    - service
+    - team
+    - deployment_method
+
+alerts:
+  - name: "high_failure_rate"
+    condition: "change_failure_rate > 15"
+    severity: "critical"
+    message: "Change failure rate exceeds 15%"
+  
+  - name: "failure_rate_spike"
+    condition: "change_failure_rate_1d > (change_failure_rate_7d * 2)"
+    severity: "warning"
+    message: "Daily failure rate is double the weekly average"
+
+visualization:
+  target_rate: 5  # Target: less than 5% failure rate
+  
+  charts:
+    - type: "percentage"
+      title: "Current Change Failure Rate"
+      colors:
+        good: "< 5%"
+        warning: "5-15%"
+        critical: "> 15%"
+    
+    - type: "stacked_bar"
+      title: "Failures by Type"
+      categories:
+        - rollbacks
+        - incidents
+        - failed_deployments
+    
+    - type: "trend_line"
+      title: "Change Failure Rate Trend"
+      timeframe: "30d"
+
+export:
+  prometheus:
+    metrics:
+      - name: "dora_change_failure_rate"
+        type: "gauge"
+        labels:
+          - service
+          - team
+          - failure_type
+      
+      - name: "dora_total_deployments"
+        type: "counter"
+        labels:
+          - service
+          - environment
+      
+      - name: "dora_failed_deployments"
+        type: "counter"
+        labels:
+          - service
+          - environment
+          - failure_reason

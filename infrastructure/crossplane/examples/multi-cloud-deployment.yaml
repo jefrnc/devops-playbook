@@ -1,0 +1,94 @@
+# Example: Multi-cloud DORA deployment
+---
+# AWS Production
+apiVersion: platform.dora.io/v1alpha1
+kind: DORAPlatform
+metadata:
+  name: dora-aws-prod
+  namespace: default
+  labels:
+    cloud: aws
+    environment: production
+spec:
+  parameters:
+    cloudProvider: aws
+    region: us-east-1
+    environment: production
+    kubernetesVersion: "1.28"
+    nodeCount: 5
+    nodeSize: t3.large
+    databaseSize: db.t3.large
+    databaseStorage: 500
+    enableHighAvailability: true
+    enableBackup: true
+    enableMonitoring: true
+    tags:
+      Environment: production
+      Platform: dora
+      Cloud: aws
+      Region: us-east-1
+  writeConnectionSecretToRef:
+    name: dora-aws-prod-credentials
+    namespace: dora-system
+---
+# Azure DR Site
+apiVersion: platform.dora.io/v1alpha1
+kind: DORAPlatform
+metadata:
+  name: dora-azure-dr
+  namespace: default
+  labels:
+    cloud: azure
+    environment: dr
+spec:
+  parameters:
+    cloudProvider: azure
+    region: eastus2
+    environment: production
+    kubernetesVersion: "1.28"
+    nodeCount: 3
+    nodeSize: Standard_D4s_v3
+    databaseSize: GP_Gen5_4
+    databaseStorage: 500
+    enableHighAvailability: true
+    enableBackup: true
+    enableMonitoring: true
+    tags:
+      Environment: dr
+      Platform: dora
+      Cloud: azure
+      Region: eastus2
+  writeConnectionSecretToRef:
+    name: dora-azure-dr-credentials
+    namespace: dora-system
+---
+# GCP Development
+apiVersion: platform.dora.io/v1alpha1
+kind: DORAPlatform
+metadata:
+  name: dora-gcp-dev
+  namespace: default
+  labels:
+    cloud: gcp
+    environment: development
+spec:
+  parameters:
+    cloudProvider: gcp
+    region: us-central1
+    environment: development
+    kubernetesVersion: "1.28"
+    nodeCount: 2
+    nodeSize: n2-standard-2
+    databaseSize: db-g1-small
+    databaseStorage: 20
+    enableHighAvailability: false
+    enableBackup: false
+    enableMonitoring: true
+    tags:
+      Environment: development
+      Platform: dora
+      Cloud: gcp
+      Region: us-central1
+  writeConnectionSecretToRef:
+    name: dora-gcp-dev-credentials
+    namespace: dora-system

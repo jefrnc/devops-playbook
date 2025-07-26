@@ -1,0 +1,46 @@
+# Crossplane configuration metadata
+apiVersion: meta.pkg.crossplane.io/v1alpha1
+kind: Configuration
+metadata:
+  name: dora-platform
+  annotations:
+    meta.crossplane.io/maintainer: Platform Engineering <platform@company.com>
+    meta.crossplane.io/source: github.com/jefrnc/devops-playbook
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: |
+      The DORA Platform Configuration provides a complete infrastructure
+      stack for implementing DORA metrics collection and visualization.
+    meta.crossplane.io/readme: |
+      This configuration creates:
+      - Managed Kubernetes cluster (EKS/AKS/GKE)
+      - Managed PostgreSQL database
+      - Object storage for backups
+      - Monitoring stack (Prometheus + Grafana)
+      - Network infrastructure
+      - Security policies and IAM roles
+      
+      Supported cloud providers: AWS, Azure, GCP
+spec:
+  crossplane:
+    version: ">=v1.14.0"
+  
+  dependsOn:
+    # AWS Provider
+    - provider: xpkg.upbound.io/upbound/provider-aws
+      version: ">=v0.46.0"
+    
+    # Azure Provider  
+    - provider: xpkg.upbound.io/upbound/provider-azure
+      version: ">=v0.38.0"
+    
+    # GCP Provider
+    - provider: xpkg.upbound.io/upbound/provider-gcp
+      version: ">=v0.41.0"
+    
+    # Kubernetes Provider
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-kubernetes
+      version: ">=v0.11.0"
+    
+    # Helm Provider
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-helm
+      version: ">=v0.15.0"

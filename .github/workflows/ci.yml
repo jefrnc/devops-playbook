@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  lint-python:
+    name: Lint Python Scripts
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort mypy
+        
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 scripts/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 scripts/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Check formatting with black
+      run: black --check scripts/
+    
+    - name: Check import order with isort
+      run: isort --check-only scripts/
+    
+    - name: Type check with mypy
+      run: mypy scripts/ || true
+
+  test-scripts:
+    name: Test DORA Scripts
+    runs-on: ubuntu-latest
+    needs: lint-python
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-mock
+        
+    - name: Install script dependencies
+      run: |
+        for req in scripts/*/requirements.txt; do
+          pip install -r "$req"
+        done
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --cov=scripts --cov-report=xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  validate-terraform:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform Format Check
+      run: |
+        cd templates/terraform
+        terraform fmt -check -recursive
+    
+    - name: Terraform Init
+      run: |
+        cd templates/terraform/monitoring-stack
+        terraform init -backend=false
+    
+    - name: Terraform Validate
+      run: |
+        cd templates/terraform/monitoring-stack
+        terraform validate
+
+  lint-ansible:
+    name: Lint Ansible
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible ansible-lint
+    
+    - name: Lint Ansible Playbooks
+      run: |
+        ansible-lint templates/ansible/
+
+  validate-markdown:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Lint Markdown files
+      uses: DavidAnson/markdownlint-cli2-action@v14
+      with:
+        globs: '**/*.md'
+    
+    - name: Check for broken links
+      uses: lycheeverse/lychee-action@v1
+      with:
+        args: --verbose --no-progress './**/*.md'
+        fail: false  # Don't fail on broken links, just report
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run Bandit security linter
+      run: |
+        pip install bandit
+        bandit -r scripts/ -f json -o bandit-report.json || true
+
+  build-status:
+    name: Build Status
+    runs-on: ubuntu-latest
+    needs: [lint-python, test-scripts, validate-terraform, lint-ansible, validate-markdown]
+    if: always()
+    
+    steps:
+    - name: Check build status
+      run: |
+        if [ "${{ needs.lint-python.result }}" == "failure" ] || \
+           [ "${{ needs.test-scripts.result }}" == "failure" ] || \
+           [ "${{ needs.validate-terraform.result }}" == "failure" ] || \
+           [ "${{ needs.lint-ansible.result }}" == "failure" ] || \
+           [ "${{ needs.validate-markdown.result }}" == "failure" ]; then
+          echo "One or more jobs failed"
+          exit 1
+        else
+          echo "All jobs passed successfully"
+        fi

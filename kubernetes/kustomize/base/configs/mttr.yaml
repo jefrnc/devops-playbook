@@ -1,0 +1,102 @@
+# Mean Time to Recovery (MTTR) metric configuration
+metric_name: mean_time_to_recovery
+description: "How long it takes to recover from a failure in production"
+
+data_sources:
+  pagerduty:
+    enabled: true
+    api_endpoint: "https://api.pagerduty.com"
+    incident_filters:
+      urgency: ["high"]
+      service_names: ["*-production"]
+    resolution_status: "resolved"
+  
+  opsgenie:
+    enabled: true
+    api_endpoint: "https://api.opsgenie.com/v2"
+    alert_filters:
+      priority: ["P1", "P2"]
+      tags: ["production"]
+    closed_status: "closed"
+  
+  prometheus:
+    enabled: true
+    alertmanager_endpoint: "http://alertmanager:9093"
+    alert_filters:
+      severity: ["critical", "warning"]
+      environment: "production"
+  
+  aws_cloudwatch:
+    enabled: false
+    region: "us-east-1"
+    alarm_name_pattern: "*-prod-*"
+    state_filter: "ALARM"
+
+calculation:
+  # Time measurement
+  start_time: "incident_created"
+  end_time: "incident_resolved"
+  
+  # Business hours consideration
+  business_hours:
+    enabled: true
+    timezone: "UTC"
+    start: "09:00"
+    end: "17:00"
+    exclude_weekends: true
+  
+  # Statistical calculations
+  metrics:
+    - mean
+    - median
+    - p90
+    - p95
+  
+  # Grouping
+  group_by:
+    - service
+    - severity
+    - incident_type
+  
+  # Exclusions
+  exclude:
+    - planned_maintenance
+    - false_positives
+    - test_incidents
+
+alerts:
+  - name: "mttr_exceeds_sla"
+    condition: "mttr_minutes > 30"
+    severity: "critical"
+    message: "MTTR exceeds 30 minute SLA"
+  
+  - name: "mttr_trending_up"
+    condition: "mttr_trend_7d > 1.1"
+    severity: "warning"
+    message: "MTTR increasing by more than 10% over 7 days"
+
+visualization:
+  primary_metric: "median_mttr_minutes"
+  
+  charts:
+    - type: "gauge"
+      title: "Current MTTR"
+      thresholds:
+        good: 15
+        warning: 30
+        critical: 60
+    
+    - type: "heatmap"
+      title: "MTTR by Service and Hour"
+      x_axis: "hour_of_day"
+      y_axis: "service"
+
+export:
+  prometheus:
+    metrics:
+      - name: "dora_mttr_seconds"
+        type: "histogram"
+        labels:
+          - service
+          - severity
+          - incident_source

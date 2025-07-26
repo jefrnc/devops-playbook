@@ -1,0 +1,30 @@
+apiVersion: builtin
+kind: LabelTransformer
+metadata:
+  name: dora-labels
+labels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: dora-platform
+  app.kubernetes.io/version: v1.0.0
+  platform.dora/component: metrics
+fieldSpecs:
+  - path: metadata/labels
+    create: true
+  - path: spec/selector/matchLabels
+    create: false
+    kind: Deployment
+  - path: spec/template/metadata/labels
+    create: true
+    kind: Deployment
+  - path: spec/template/metadata/labels
+    create: true
+    kind: StatefulSet
+  - path: spec/template/metadata/labels
+    create: true
+    kind: DaemonSet
+  - path: spec/template/metadata/labels
+    create: true
+    kind: Job
+  - path: spec/jobTemplate/spec/template/metadata/labels
+    create: true
+    kind: CronJob

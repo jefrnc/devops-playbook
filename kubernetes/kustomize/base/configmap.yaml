@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dora-metrics-base-config
+  labels:
+    app.kubernetes.io/name: dora-metrics
+    app.kubernetes.io/component: configuration
+data:
+  config.yaml: |
+    # Base configuration for DORA metrics
+    metrics:
+      deployment_frequency:
+        enabled: true
+        schedule: "*/15 * * * *"
+        sources:
+          - github
+          - gitlab
+          - argocd
+      lead_time:
+        enabled: true
+        schedule: "0 */4 * * *"
+        calculation_method: "commit_to_production"
+      mttr:
+        enabled: true
+        schedule: "*/30 * * * *"
+        incident_sources:
+          - pagerduty
+          - opsgenie
+      change_failure_rate:
+        enabled: true
+        schedule: "0 */6 * * *"
+        failure_detection:
+          - rollbacks
+          - incidents
+          - failed_deployments
+    
+    storage:
+      type: postgresql
+      retention_days: 90
+    
+    alerting:
+      enabled: true
+      channels:
+        - slack
+        - email
+    
+    export:
+      prometheus:
+        enabled: true
+        port: 9090
+      json:
+        enabled: true
+        path: "/metrics/json"
+  
+  dashboard-config.yaml: |
+    # Dashboard configuration
+    dashboard:
+      refresh_interval: 30s
+      default_timerange: "7d"
+      charts:
+        - type: "line"
+          metric: "deployment_frequency"
+          title: "Deployment Frequency"
+        - type: "histogram"
+          metric: "lead_time"
+          title: "Lead Time Distribution"
+        - type: "gauge"
+          metric: "mttr"
+          title: "Mean Time to Recovery"
+        - type: "percentage"
+          metric: "change_failure_rate"
+          title: "Change Failure Rate"

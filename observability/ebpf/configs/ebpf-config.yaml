@@ -1,0 +1,174 @@
+# eBPF Collector Configuration
+collectors:
+  deployment_tracker:
+    enabled: true
+    port: 9090
+    config:
+      # Container runtime detection
+      container_runtimes:
+        - docker
+        - containerd
+        - cri-o
+      
+      # Namespace filtering
+      track_namespaces:
+        - default
+        - production
+        - staging
+      
+      ignore_namespaces:
+        - kube-system
+        - kube-public
+        - monitoring
+      
+      # Service mapping
+      container_labels:
+        service: "app.kubernetes.io/name"
+        version: "app.kubernetes.io/version"
+        component: "app.kubernetes.io/component"
+  
+  latency_tracker:
+    enabled: true
+    port: 9091
+    config:
+      # Ports to track
+      http_ports:
+        - 80
+        - 8080
+        - 8000
+        - 3000
+        - 5000
+      
+      https_ports:
+        - 443
+        - 8443
+      
+      database_ports:
+        postgresql: 5432
+        mysql: 3306
+        redis: 6379
+        mongodb: 27017
+      
+      # Sampling rate (1 = 100%)
+      sampling_rate: 1.0
+      
+      # Request filtering
+      track_paths:
+        - "/api/*"
+        - "/metrics"
+        - "/health"
+      
+      ignore_paths:
+        - "/static/*"
+        - "*.js"
+        - "*.css"
+        - "*.png"
+  
+  error_detector:
+    enabled: true
+    port: 9092
+    config:
+      # Error types to track
+      track_signals:
+        - SIGSEGV  # Segmentation fault
+        - SIGABRT  # Abort
+        - SIGKILL  # Kill
+        - SIGTERM  # Terminate
+      
+      # Exit codes indicating errors
+      error_exit_codes:
+        - 1      # General error
+        - 2      # Misuse of shell command
+        - 126    # Command cannot execute
+        - 127    # Command not found
+        - 128    # Invalid exit argument
+        - 130    # Terminated by Ctrl+C
+        - 137    # SIGKILL (OOM)
+        - 139    # Segmentation fault
+        - 143    # SIGTERM
+      
+      # HTTP status codes for errors
+      http_error_codes:
+        - 500    # Internal Server Error
+        - 502    # Bad Gateway
+        - 503    # Service Unavailable
+        - 504    # Gateway Timeout
+      
+      # Incident thresholds
+      incident_thresholds:
+        error_count: 5
+        time_window: 300  # 5 minutes
+        severity_escalation: 10  # Escalate after 10 errors
+  
+  performance_monitor:
+    enabled: true
+    port: 9093
+    config:
+      # CPU tracking
+      cpu_tracking:
+        enabled: true
+        sample_interval: 1000  # milliseconds
+      
+      # Memory tracking
+      memory_tracking:
+        enabled: true
+        track_rss: true
+        track_cache: true
+        track_swap: true
+      
+      # I/O tracking
+      io_tracking:
+        enabled: true
+        track_disk: true
+        track_network: true
+      
+      # Process filtering
+      track_processes:
+        - "java"
+        - "python"
+        - "node"
+        - "go"
+        - "ruby"
+      
+      ignore_processes:
+        - "kernel"
+        - "systemd"
+
+# Global settings
+global:
+  # Prometheus endpoint
+  metrics_port: 9099
+  
+  # Logging
+  log_level: info  # debug, info, warn, error
+  log_format: json  # json, text
+  
+  # Resource limits
+  max_memory_mb: 512
+  max_cpu_percent: 50
+  
+  # Buffer sizes
+  perf_buffer_pages: 64
+  ring_buffer_pages: 8
+  
+  # Retention
+  metrics_retention_seconds: 3600
+  
+# Export configuration
+export:
+  prometheus:
+    enabled: true
+    endpoint: ":9099"
+    path: "/metrics"
+  
+  remote_write:
+    enabled: false
+    url: "http://prometheus:9090/api/v1/write"
+    timeout: 30s
+    retry_attempts: 3
+  
+  file:
+    enabled: false
+    path: "/var/log/ebpf-metrics.json"
+    rotation_size: "100MB"
+    rotation_count: 5

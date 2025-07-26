@@ -1,0 +1,30 @@
+# Kubernetes Provider for Crossplane
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-kubernetes
+  annotations:
+    meta.crossplane.io/maintainer: "Crossplane"
+    meta.crossplane.io/source: "github.com/crossplane-contrib/provider-kubernetes"
+    meta.crossplane.io/license: "Apache-2.0"
+    meta.crossplane.io/description: "Kubernetes Provider for Crossplane"
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.11.0
+  controllerConfigRef:
+    name: provider-kubernetes-config
+---
+# Controller configuration for Kubernetes provider
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: provider-kubernetes-config
+spec:
+  podSecurityContext:
+    fsGroup: 2000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi

@@ -1,0 +1,132 @@
+# Composite Resource Definition for Monitoring Stack
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xmonitoringstacks.observability.dora.io
+  annotations:
+    meta.crossplane.io/description: "Monitoring stack for DORA metrics"
+spec:
+  group: observability.dora.io
+  names:
+    kind: XMonitoringStack
+    plural: xmonitoringstacks
+  claimNames:
+    kind: MonitoringStack
+    plural: monitoringstacks
+  connectionSecretKeys:
+    - prometheus-endpoint
+    - grafana-endpoint
+    - grafana-admin-password
+    - alertmanager-endpoint
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  cloudProvider:
+                    type: string
+                    description: "Cloud provider for managed services"
+                    enum:
+                      - aws
+                      - azure
+                      - gcp
+                    default: "aws"
+                  
+                  region:
+                    type: string
+                    description: "Cloud region"
+                    default: "us-east-1"
+                  
+                  clusterName:
+                    type: string
+                    description: "Target Kubernetes cluster name"
+                  
+                  storageSize:
+                    type: integer
+                    description: "Storage size in GB for metrics"
+                    minimum: 10
+                    maximum: 1000
+                    default: 100
+                  
+                  retentionDays:
+                    type: integer
+                    description: "Metrics retention in days"
+                    minimum: 1
+                    maximum: 365
+                    default: 30
+                  
+                  enableHighAvailability:
+                    type: boolean
+                    description: "Enable HA deployment"
+                    default: false
+                  
+                  alertChannels:
+                    type: array
+                    description: "Alert notification channels"
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - slack
+                            - email
+                            - pagerduty
+                            - webhook
+                        config:
+                          type: object
+                          additionalProperties:
+                            type: string
+                  
+                  grafanaDashboards:
+                    type: array
+                    description: "Pre-configured Grafana dashboards"
+                    items:
+                      type: string
+                    default:
+                      - dora-metrics
+                      - kubernetes-cluster
+                      - application-performance
+                
+                required:
+                  - cloudProvider
+                  - region
+                  - clusterName
+          
+          status:
+            type: object
+            properties:
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+              
+              endpoints:
+                type: object
+                properties:
+                  prometheus:
+                    type: string
+                  grafana:
+                    type: string
+                  alertmanager:
+                    type: string

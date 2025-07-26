@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Component
+
+resources:
+  - prometheus-rule.yaml
+  - grafana-dashboard-configmap.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1scrape
+        value: "true"
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1port
+        value: "9090"
+      - op: add
+        path: /spec/template/metadata/annotations/prometheus.io~1path
+        value: "/metrics"

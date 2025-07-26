@@ -1,0 +1,26 @@
+apiVersion: builtin
+kind: AnnotationsTransformer
+metadata:
+  name: dora-annotations
+annotations:
+  platform.dora/documentation: "https://docs.yourdomain.com/dora-metrics"
+  platform.dora/source-repository: "https://github.com/jefrnc/devops-playbook"
+  platform.dora/support-channel: "#platform-engineering"
+fieldSpecs:
+  - path: metadata/annotations
+    create: true
+  - path: spec/template/metadata/annotations
+    create: true
+    kind: Deployment
+  - path: spec/template/metadata/annotations
+    create: true
+    kind: StatefulSet
+  - path: spec/template/metadata/annotations
+    create: true
+    kind: DaemonSet
+  - path: spec/template/metadata/annotations
+    create: true
+    kind: Job
+  - path: spec/jobTemplate/spec/template/metadata/annotations
+    create: true
+    kind: CronJob

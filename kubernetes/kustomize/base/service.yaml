@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-operator
+  labels:
+    app: dora-operator
+    app.kubernetes.io/name: dora-operator
+    app.kubernetes.io/component: operator
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: dora-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-dashboard
+  labels:
+    app: dora-dashboard
+    app.kubernetes.io/name: dora-dashboard
+    app.kubernetes.io/component: dashboard
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: dora-dashboard

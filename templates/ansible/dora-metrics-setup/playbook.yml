@@ -1,0 +1,211 @@
+---
+# DORA Metrics Collection Setup Playbook
+# Installs and configures DORA metrics collectors on target hosts
+
+- name: Setup DORA Metrics Collection
+  hosts: metrics_collectors
+  become: yes
+  vars:
+    metrics_user: dora-metrics
+    metrics_dir: /opt/dora-metrics
+    python_version: "3.9"
+    
+  tasks:
+    - name: Install system dependencies
+      package:
+        name:
+          - python{{ python_version }}
+          - python{{ python_version }}-pip
+          - python{{ python_version }}-venv
+          - git
+          - supervisor
+        state: present
+      tags: [dependencies]
+
+    - name: Create metrics user
+      user:
+        name: "{{ metrics_user }}"
+        home: "{{ metrics_dir }}"
+        shell: /bin/bash
+        system: yes
+        create_home: yes
+      tags: [setup]
+
+    - name: Clone DevOps Playbook repository
+      git:
+        repo: https://github.com/jefrnc/devops-playbook.git
+        dest: "{{ metrics_dir }}/devops-playbook"
+        version: main
+      become_user: "{{ metrics_user }}"
+      tags: [deployment]
+
+    - name: Create Python virtual environment
+      command:
+        cmd: python{{ python_version }} -m venv venv
+        chdir: "{{ metrics_dir }}/devops-playbook"
+        creates: "{{ metrics_dir }}/devops-playbook/venv"
+      become_user: "{{ metrics_user }}"
+      tags: [setup]
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ metrics_dir }}/devops-playbook/scripts/{{ item }}/requirements.txt"
+        virtualenv: "{{ metrics_dir }}/devops-playbook/venv"
+      loop:
+        - DeploymentFrequency
+        - LeadTime
+        - MTTR
+        - ChangeFailureRate
+      become_user: "{{ metrics_user }}"
+      tags: [dependencies]
+
+    - name: Create configuration directory
+      file:
+        path: "{{ metrics_dir }}/config"
+        state: directory
+        owner: "{{ metrics_user }}"
+        group: "{{ metrics_user }}"
+        mode: '0750'
+      tags: [setup]
+
+    - name: Deploy configuration files
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ metrics_dir }}/config/{{ item.dest }}"
+        owner: "{{ metrics_user }}"
+        group: "{{ metrics_user }}"
+        mode: '0640'
+      loop:
+        - { src: deployment_frequency_config.j2, dest: deployment_frequency.yaml }
+        - { src: lead_time_config.j2, dest: lead_time.yaml }
+        - { src: mttr_config.j2, dest: mttr.yaml }
+        - { src: change_failure_rate_config.j2, dest: change_failure_rate.yaml }
+      tags: [configuration]
+
+    - name: Create logs directory
+      file:
+        path: /var/log/dora-metrics
+        state: directory
+        owner: "{{ metrics_user }}"
+        group: "{{ metrics_user }}"
+        mode: '0755'
+      tags: [setup]
+
+    - name: Deploy systemd service files
+      template:
+        src: "{{ item }}.service.j2"
+        dest: "/etc/systemd/system/{{ item }}.service"
+        mode: '0644'
+      loop:
+        - dora-deployment-frequency
+        - dora-lead-time
+        - dora-mttr
+        - dora-change-failure-rate
+      notify:
+        - reload systemd
+        - restart dora services
+      tags: [services]
+
+    - name: Deploy cron jobs for metric collection
+      cron:
+        name: "{{ item.name }}"
+        minute: "{{ item.minute }}"
+        hour: "{{ item.hour }}"
+        job: "{{ item.job }}"
+        user: "{{ metrics_user }}"
+      loop:
+        - name: "Collect Deployment Frequency"
+          minute: "*/15"
+          hour: "*"
+          job: "cd {{ metrics_dir }}/devops-playbook && venv/bin/python scripts/DeploymentFrequency/deployment_frequency.py --config {{ metrics_dir }}/config/deployment_frequency.yaml --output prometheus --push-gateway http://prometheus-pushgateway:9091"
+        
+        - name: "Collect Lead Time"
+          minute: "0"
+          hour: "*/6"
+          job: "cd {{ metrics_dir }}/devops-playbook && venv/bin/python scripts/LeadTime/lead_time.py --config {{ metrics_dir }}/config/lead_time.yaml --output json --output-file /var/log/dora-metrics/lead_time.json"
+        
+        - name: "Collect MTTR"
+          minute: "30"
+          hour: "*"
+          job: "cd {{ metrics_dir }}/devops-playbook && venv/bin/python scripts/MTTR/mttr_calculator.py --config {{ metrics_dir }}/config/mttr.yaml --output json --output-file /var/log/dora-metrics/mttr.json"
+        
+        - name: "Collect Change Failure Rate"
+          minute: "0"
+          hour: "0"
+          job: "cd {{ metrics_dir }}/devops-playbook && venv/bin/python scripts/ChangeFailureRate/change_failure_rate.py --config {{ metrics_dir }}/config/change_failure_rate.yaml --report > /var/log/dora-metrics/change_failure_rate_daily.txt"
+      tags: [cron]
+
+    - name: Set up log rotation
+      template:
+        src: logrotate.j2
+        dest: /etc/logrotate.d/dora-metrics
+        mode: '0644'
+      tags: [logging]
+
+    - name: Install monitoring exporters
+      pip:
+        name:
+          - prometheus-client
+          - node-exporter
+        virtualenv: "{{ metrics_dir }}/devops-playbook/venv"
+      become_user: "{{ metrics_user }}"
+      tags: [monitoring]
+
+    - name: Deploy metrics exporter service
+      template:
+        src: metrics_exporter.py.j2
+        dest: "{{ metrics_dir }}/metrics_exporter.py"
+        owner: "{{ metrics_user }}"
+        group: "{{ metrics_user }}"
+        mode: '0755'
+      tags: [monitoring]
+
+    - name: Start and enable services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      loop:
+        - dora-metrics-exporter
+      tags: [services]
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart dora services
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - dora-metrics-exporter
+
+# Monitoring setup
+- name: Configure Prometheus Targets
+  hosts: prometheus_servers
+  become: yes
+  tasks:
+    - name: Add DORA metrics targets to Prometheus
+      blockinfile:
+        path: /etc/prometheus/prometheus.yml
+        block: |
+          - job_name: 'dora_metrics'
+            static_configs:
+              - targets:
+                {% for host in groups['metrics_collectors'] %}
+                  - {{ hostvars[host]['ansible_default_ipv4']['address'] }}:9100
+                {% endfor %}
+            relabel_configs:
+              - source_labels: [__address__]
+                target_label: instance
+                regex: '([^:]+):.*'
+                replacement: '${1}'
+      notify: restart prometheus
+
+  handlers:
+    - name: restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted

@@ -1,0 +1,35 @@
+# AWS Provider for Crossplane
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws
+  annotations:
+    meta.crossplane.io/maintainer: "Upbound"
+    meta.crossplane.io/source: "github.com/upbound/provider-aws"
+    meta.crossplane.io/license: "Apache-2.0"
+    meta.crossplane.io/description: "AWS Provider for Crossplane"
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws:v0.46.0
+  controllerConfigRef:
+    name: provider-aws-config
+---
+# Controller configuration for AWS provider
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: provider-aws-config
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/crossplane-provider-aws"
+spec:
+  podSecurityContext:
+    fsGroup: 2000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  env:
+    - name: AWS_REGION
+      value: "us-east-1"

@@ -1,0 +1,173 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Reference to base configuration
+bases:
+  - ../../base
+
+# Development namespace
+namespace: dora-dev
+
+# Development-specific labels
+commonLabels:
+  environment: development
+  tier: platform
+
+# Name prefix for all resources
+namePrefix: dev-
+
+# Development configuration
+configMapGenerator:
+  - name: dora-metrics-config
+    behavior: merge
+    literals:
+      - log_level=debug
+      - metrics_retention=7d
+      - alert_threshold=warning
+      - deployment_frequency_schedule="*/30 * * * *"
+      - lead_time_schedule="0 */12 * * *"
+      - mttr_schedule="0 * * * *"
+      - change_failure_rate_schedule="0 0 * * *"
+      - debug_mode=true
+      - trace_enabled=true
+
+# Development secrets (simple literals for dev)
+secretGenerator:
+  - name: dora-credentials
+    behavior: replace
+    literals:
+      - github-token=dev-token-replace-me
+      - gitlab-token=dev-token-replace-me
+      - pagerduty-token=dev-token-replace-me
+      - slack-webhook=https://hooks.slack.com/services/dev/webhook
+
+# Development images with latest tags
+images:
+  - name: dora-operator
+    newTag: latest
+  - name: deployment-frequency-collector
+    newTag: latest
+  - name: lead-time-collector
+    newTag: latest
+  - name: mttr-collector
+    newTag: latest
+  - name: change-failure-rate-collector
+    newTag: latest
+
+# Single replica for development
+replicas:
+  - name: dora-operator
+    count: 1
+  - name: dora-dashboard
+    count: 1
+
+# Development-specific patches
+patches:
+  # Lower resource requirements
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+  
+  # Disable security restrictions for easier debugging
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/securityContext
+        value:
+          runAsNonRoot: false
+          runAsUser: 0
+  
+  # Enable debug ports
+  - target:
+      kind: Deployment
+      name: dora-operator
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/ports/-
+        value:
+          name: debug
+          containerPort: 40000
+          protocol: TCP
+  
+  # Add development environment variables
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENVIRONMENT
+          value: development
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: DEBUG
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: LOG_FORMAT
+          value: "text"
+
+# Development-only resources
+resources:
+  - debug-pod.yaml
+  - port-forward-service.yaml
+
+# Skip certain production components
+components:
+  - ../../components/monitoring
+
+# In-memory database for development
+patches:
+  - target:
+      kind: Deployment
+      name: dora-operator
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: STORAGE_TYPE
+          value: memory
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: STORAGE_PERSIST
+          value: "false"
+
+# Development ingress with nip.io
+patchesJson6902:
+  - target:
+      kind: Ingress
+      name: dora-metrics
+      version: v1
+      group: networking.k8s.io
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: dora.127.0.0.1.nip.io
+      - op: replace
+        path: /spec/tls
+        value: []
+
+# Variable overrides for development
+vars:
+  - name: REPLICA_COUNT
+    value: "1"
+  - name: STORAGE_CLASS
+    value: "standard"
+  - name: PERSISTENCE_SIZE
+    value: "1Gi"

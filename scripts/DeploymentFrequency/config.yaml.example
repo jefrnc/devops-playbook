@@ -1,0 +1,71 @@
+# Deployment Frequency Calculator Configuration
+# Copy this file to config.yaml and update with your settings
+
+# Data source: aws, github, gitlab, jenkins
+data_source: github
+
+# Time range for analysis
+time_range:
+  # Options: specific date (2024-01-01) or relative (30d, 7d, 1d)
+  start_date: "30d"
+  # Options: specific date or "now"
+  end_date: "now"
+
+# Environments to track (leave empty for all)
+environments:
+  - production
+  - staging
+
+# Output format: json, csv, prometheus
+output_format: json
+
+# AWS CloudTrail configuration (if data_source is aws)
+aws:
+  profile: default
+  region: us-east-1
+  
+# GitHub configuration (if data_source is github)
+github:
+  # Token can also be set via GITHUB_TOKEN environment variable
+  token: ${GITHUB_TOKEN}
+  organization: your-org
+  repositories:
+    - api-service
+    - web-frontend
+    - worker-service
+
+# GitLab configuration (if data_source is gitlab)
+gitlab:
+  url: https://gitlab.com
+  token: ${GITLAB_TOKEN}
+  projects:
+    - 123  # Project IDs
+    - 456
+
+# Jenkins configuration (if data_source is jenkins)
+jenkins:
+  url: https://jenkins.example.com
+  username: ${JENKINS_USER}
+  token: ${JENKINS_TOKEN}
+  jobs:
+    - production-deploy
+    - staging-deploy
+
+# Prometheus Push Gateway (optional)
+prometheus:
+  push_gateway: http://prometheus-pushgateway:9091
+  job_name: deployment_frequency
+
+# Alerting configuration (optional)
+alerting:
+  enabled: true
+  webhook_url: ${SLACK_WEBHOOK_URL}
+  thresholds:
+    daily_minimum: 1  # Alert if daily deployments fall below this
+    
+# Reporting options
+reporting:
+  # Generate weekly/monthly reports
+  schedule: weekly
+  recipients:
+    - devops-team@example.com

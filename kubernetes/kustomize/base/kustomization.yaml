@@ -1,0 +1,153 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Metadata for all resources
+metadata:
+  name: dora-metrics-base
+  annotations:
+    config.kubernetes.io/function: |
+      container:
+        image: gcr.io/kustomize-functions/example:v0.1.0
+
+# Common namespace
+namespace: dora-system
+
+# Common labels for all resources
+commonLabels:
+  app.kubernetes.io/name: dora-metrics
+  app.kubernetes.io/part-of: dora-platform
+  app.kubernetes.io/managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  platform.dora/version: "1.0.0"
+  platform.dora/team: "platform-engineering"
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - servicemonitor.yaml
+
+# Config map generator for dynamic configs
+configMapGenerator:
+  - name: dora-metrics-config
+    files:
+      - configs/deployment-frequency.yaml
+      - configs/lead-time.yaml
+      - configs/mttr.yaml
+      - configs/change-failure-rate.yaml
+    options:
+      labels:
+        config.dora/type: "metrics"
+      annotations:
+        config.dora/generated: "true"
+
+# Secret generator (using external secret management)
+secretGenerator:
+  - name: dora-credentials
+    type: Opaque
+    literals:
+      - github-token=replaceme
+      - gitlab-token=replaceme
+      - pagerduty-token=replaceme
+    options:
+      labels:
+        config.dora/type: "credentials"
+      annotations:
+        config.dora/rotation: "90d"
+
+# Images to override
+images:
+  - name: dora-operator
+    newName: ghcr.io/jefrnc/dora-metrics-operator
+    newTag: v1.0.0
+  - name: deployment-frequency-collector
+    newName: ghcr.io/jefrnc/deployment-frequency
+    newTag: v1.0.0
+  - name: lead-time-collector
+    newName: ghcr.io/jefrnc/lead-time
+    newTag: v1.0.0
+  - name: mttr-collector
+    newName: ghcr.io/jefrnc/mttr
+    newTag: v1.0.0
+  - name: change-failure-rate-collector
+    newName: ghcr.io/jefrnc/change-failure-rate
+    newTag: v1.0.0
+
+# Patches for common modifications
+patches:
+  # Add resource limits to all containers
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+  
+  # Add security context to all pods
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/securityContext
+        value:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+
+# Replace values in resources
+replacements:
+  - source:
+      kind: ConfigMap
+      name: dora-metrics-config
+      fieldPath: data.namespace
+    targets:
+      - select:
+          kind: Deployment
+        fieldPaths:
+          - metadata.namespace
+          - spec.template.spec.containers.[name=operator].env.[name=NAMESPACE].value
+
+# Variable definitions
+vars:
+  - name: SERVICE_NAME
+    objref:
+      kind: Service
+      name: dora-metrics
+      apiVersion: v1
+    fieldref:
+      fieldpath: metadata.name
+  - name: NAMESPACE
+    objref:
+      kind: Namespace
+      name: dora-system
+      apiVersion: v1
+    fieldref:
+      fieldpath: metadata.name
+
+# Transformers
+transformers:
+  - labels.yaml
+  - annotations.yaml
+
+# Validators
+validators:
+  - https://github.com/kubernetes-sigs/kustomize/releases/download/kyaml%2Fv0.13.0/resource-validator-linux-amd64.tar.gz
+
+# Build options
+buildMetadata:
+  - managedByLabel
+  - originAnnotations

@@ -1,0 +1,75 @@
+# Example: Provision complete DORA platform on AWS
+apiVersion: platform.dora.io/v1alpha1
+kind: DORAPlatform
+metadata:
+  name: dora-prod
+  namespace: default
+spec:
+  parameters:
+    # Cloud provider configuration
+    cloudProvider: aws
+    region: us-east-1
+    environment: production
+    
+    # Kubernetes cluster configuration
+    kubernetesVersion: "1.28"
+    nodeCount: 5
+    nodeSize: t3.large
+    
+    # Database configuration
+    databaseSize: db.t3.large
+    databaseStorage: 500
+    enableHighAvailability: true
+    
+    # Features
+    enableBackup: true
+    enableMonitoring: true
+    
+    # Resource tags
+    tags:
+      Environment: production
+      Platform: dora
+      Team: platform-engineering
+      CostCenter: engineering
+      ManagedBy: crossplane
+  
+  # Connection secret configuration
+  writeConnectionSecretToRef:
+    name: dora-platform-prod-credentials
+    namespace: dora-system
+---
+# Development environment example
+apiVersion: platform.dora.io/v1alpha1
+kind: DORAPlatform
+metadata:
+  name: dora-dev
+  namespace: default
+spec:
+  parameters:
+    cloudProvider: aws
+    region: us-west-2
+    environment: development
+    
+    # Smaller resources for dev
+    kubernetesVersion: "1.28"
+    nodeCount: 2
+    nodeSize: t3.medium
+    
+    # Smaller database
+    databaseSize: db.t3.micro
+    databaseStorage: 20
+    enableHighAvailability: false
+    
+    # Dev features
+    enableBackup: false
+    enableMonitoring: true
+    
+    tags:
+      Environment: development
+      Platform: dora
+      Team: platform-engineering
+      ManagedBy: crossplane
+  
+  writeConnectionSecretToRef:
+    name: dora-platform-dev-credentials
+    namespace: dora-system

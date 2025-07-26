@@ -1,0 +1,43 @@
+# Port forward service for local development access
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-dev-access
+  labels:
+    app: dora-dev-access
+    purpose: local-development
+  annotations:
+    description: "Service for port-forwarding in development"
+spec:
+  type: NodePort
+  selector:
+    app: dora-operator
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    nodePort: 30090
+  - name: debug
+    port: 40000
+    targetPort: 40000
+    nodePort: 30040
+---
+# Headless service for direct pod access
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-pods-direct
+  labels:
+    app: dora-pods-direct
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/part-of: dora-platform
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

@@ -1,0 +1,395 @@
+# AWS Composition for DORA Platform
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xdoraplatforms.aws.platform.dora.io
+  labels:
+    provider: aws
+    platform: dora
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: platform.dora.io/v1alpha1
+    kind: XDORAPlatform
+  
+  patchSets:
+  - name: common-params
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.region
+      toFieldPath: spec.forProvider.region
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.tags
+      toFieldPath: spec.forProvider.tags
+  
+  resources:
+    # VPC
+    - name: vpc
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: VPC
+        spec:
+          forProvider:
+            cidrBlock: 10.0.0.0/16
+            enableDnsHostnames: true
+            enableDnsSupport: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: "metadata.uid"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "dora-vpc-%s"
+    
+    # Internet Gateway
+    - name: internetGateway
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: InternetGateway
+        spec:
+          forProvider:
+            vpcIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+    
+    # Public Subnet 1
+    - name: subnet-public-1
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            availabilityZone: us-east-1a
+            cidrBlock: 10.0.1.0/24
+            mapPublicIpOnLaunch: true
+            vpcIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.availabilityZone
+          transforms:
+            - type: string
+              string:
+                fmt: "%sa"
+    
+    # Public Subnet 2
+    - name: subnet-public-2
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            availabilityZone: us-east-1b
+            cidrBlock: 10.0.2.0/24
+            mapPublicIpOnLaunch: true
+            vpcIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.availabilityZone
+          transforms:
+            - type: string
+              string:
+                fmt: "%sb"
+    
+    # Private Subnet 1
+    - name: subnet-private-1
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            availabilityZone: us-east-1a
+            cidrBlock: 10.0.11.0/24
+            vpcIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.availabilityZone
+          transforms:
+            - type: string
+              string:
+                fmt: "%sa"
+    
+    # Private Subnet 2
+    - name: subnet-private-2
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            availabilityZone: us-east-1b
+            cidrBlock: 10.0.12.0/24
+            vpcIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.availabilityZone
+          transforms:
+            - type: string
+              string:
+                fmt: "%sb"
+    
+    # EKS Cluster
+    - name: eks-cluster
+      base:
+        apiVersion: eks.aws.upbound.io/v1beta1
+        kind: Cluster
+        spec:
+          forProvider:
+            roleArnSelector:
+              matchControllerRef: true
+              matchLabels:
+                role: eks-cluster
+            vpcConfig:
+              - endpointPrivateAccess: true
+                endpointPublicAccess: true
+                subnetIdSelector:
+                  matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.kubernetesVersion
+          toFieldPath: spec.forProvider.version
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "dora-eks-%s"
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoints.cluster
+      connectionDetails:
+        - name: cluster-endpoint
+          fromFieldPath: status.atProvider.endpoint
+        - name: cluster-ca
+          fromFieldPath: status.atProvider.certificateAuthority[0].data
+    
+    # EKS Node Group
+    - name: eks-nodegroup
+      base:
+        apiVersion: eks.aws.upbound.io/v1beta1
+        kind: NodeGroup
+        spec:
+          forProvider:
+            clusterNameSelector:
+              matchControllerRef: true
+            nodeRoleArnSelector:
+              matchControllerRef: true
+              matchLabels:
+                role: eks-node
+            subnetIdSelector:
+              matchControllerRef: true
+              matchLabels:
+                access: private
+            scalingConfig:
+              - minSize: 1
+                maxSize: 10
+                desiredSize: 3
+            instanceTypes:
+              - t3.medium
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.nodeCount
+          toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
+        - fromFieldPath: spec.parameters.nodeSize
+          toFieldPath: spec.forProvider.instanceTypes[0]
+    
+    # RDS Subnet Group
+    - name: rds-subnet-group
+      base:
+        apiVersion: rds.aws.upbound.io/v1beta1
+        kind: SubnetGroup
+        spec:
+          forProvider:
+            description: "DORA metrics database subnet group"
+            subnetIdSelector:
+              matchControllerRef: true
+              matchLabels:
+                access: private
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+    
+    # RDS PostgreSQL Instance
+    - name: rds-postgres
+      base:
+        apiVersion: rds.aws.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            engine: postgres
+            engineVersion: "15.4"
+            instanceClass: db.t3.medium
+            allocatedStorage: 100
+            storageType: gp3
+            storageEncrypted: true
+            dbName: dorametrics
+            username: doraadmin
+            passwordSecretRef:
+              key: password
+              name: dora-db-password
+              namespace: crossplane-system
+            dbSubnetGroupNameSelector:
+              matchControllerRef: true
+            vpcSecurityGroupIdSelector:
+              matchControllerRef: true
+              matchLabels:
+                type: database
+            backupRetentionPeriod: 7
+            backupWindow: "03:00-04:00"
+            maintenanceWindow: "sun:04:00-sun:05:00"
+            deletionProtection: false
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: spec.parameters.databaseSize
+          toFieldPath: spec.forProvider.instanceClass
+        - fromFieldPath: spec.parameters.databaseStorage
+          toFieldPath: spec.forProvider.allocatedStorage
+        - fromFieldPath: spec.parameters.enableHighAvailability
+          toFieldPath: spec.forProvider.multiAz
+        - fromFieldPath: spec.parameters.environment
+          toFieldPath: spec.forProvider.deletionProtection
+          transforms:
+            - type: map
+              map:
+                development: false
+                staging: false
+                production: true
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoints.database
+      connectionDetails:
+        - name: database-endpoint
+          fromFieldPath: status.atProvider.endpoint
+        - name: database-password
+          fromSecretKey:
+            key: password
+            name: dora-db-password
+            namespace: crossplane-system
+    
+    # S3 Bucket for backups
+    - name: s3-backup-bucket
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        spec:
+          forProvider:
+            serverSideEncryptionConfiguration:
+              - rule:
+                  - applyServerSideEncryptionByDefault:
+                      - sseAlgorithm: AES256
+            versioningConfiguration:
+              - status: Enabled
+            lifecycleRule:
+              - id: delete-old-versions
+                status: Enabled
+                noncurrentVersionExpiration:
+                  - days: 30
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+        - fromFieldPath: metadata.uid
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "dora-backup-%s"
+      connectionDetails:
+        - name: bucket-name
+          fromFieldPath: metadata.annotations[crossplane.io/external-name]
+    
+    # IAM Roles
+    - name: eks-cluster-role
+      base:
+        apiVersion: iam.aws.upbound.io/v1beta1
+        kind: Role
+        metadata:
+          labels:
+            role: eks-cluster
+        spec:
+          forProvider:
+            assumeRolePolicyDocument: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "eks.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }]
+              }
+            managedPolicyArns:
+              - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+              - "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+    
+    - name: eks-node-role
+      base:
+        apiVersion: iam.aws.upbound.io/v1beta1
+        kind: Role
+        metadata:
+          labels:
+            role: eks-node
+        spec:
+          forProvider:
+            assumeRolePolicyDocument: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "ec2.amazonaws.com"
+                  },
+                  "Action": "sts:AssumeRole"
+                }]
+              }
+            managedPolicyArns:
+              - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+              - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+              - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+              - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      patches:
+        - type: PatchSet
+          patchSetName: common-params
+    
+    # Security Groups
+    - name: database-security-group
+      base:
+        apiVersion: ec2.aws.upbound.io/v1beta1
+        kind: SecurityGroup
+        metadata:
+          labels:
+            type: database
+        spec:
+          forProvider:
+            description: "Security group for DORA metrics database"
+            vpcIdSelector:
+              matchControllerRef: true
+            ingress:
+              - fromPort: 5432
+                toPort: 5432
+                ipProtocol: tcp
+                cidrBlocks:
+                  - 10.0.0.0/16
+      patches:
+        - type: PatchSet
+          patchSetName: common-params

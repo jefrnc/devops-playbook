@@ -1,0 +1,25 @@
+# Crossplane Configuration Package for DORA Platform
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: dora-platform-config
+  annotations:
+    meta.crossplane.io/maintainer: "Platform Engineering Team"
+    meta.crossplane.io/source: "github.com/jefrnc/devops-playbook"
+    meta.crossplane.io/license: "Apache-2.0"
+    meta.crossplane.io/description: "DORA metrics platform infrastructure configuration"
+    meta.crossplane.io/readme: "Provisions complete DORA metrics infrastructure including Kubernetes, database, monitoring, and storage"
+spec:
+  crossplane:
+    version: ">=v1.14.0"
+  dependsOn:
+    - configuration: xpkg.upbound.io/upbound/configuration-aws
+      version: ">=v0.10.0"
+    - configuration: xpkg.upbound.io/upbound/configuration-azure
+      version: ">=v0.10.0"
+    - configuration: xpkg.upbound.io/upbound/configuration-gcp
+      version: ">=v0.10.0"
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-kubernetes
+      version: ">=v0.11.0"
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-helm
+      version: ">=v0.15.0"

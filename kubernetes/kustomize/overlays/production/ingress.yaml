@@ -1,0 +1,65 @@
+# Production Ingress configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dora-metrics
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12"
+spec:
+  tls:
+  - hosts:
+    - dora-metrics.yourdomain.com
+    - api.dora-metrics.yourdomain.com
+    secretName: dora-metrics-tls
+  rules:
+  - host: dora-metrics.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dora-dashboard
+            port:
+              number: 8080
+  - host: api.dora-metrics.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dora-operator
+            port:
+              number: 8080
+---
+# Separate ingress for metrics endpoint
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dora-metrics-internal
+  annotations:
+    kubernetes.io/ingress.class: nginx-internal
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: metrics.dora-internal.local
+    http:
+      paths:
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: dora-operator
+            port:
+              number: 9090

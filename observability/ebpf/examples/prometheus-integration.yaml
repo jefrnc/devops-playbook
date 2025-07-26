@@ -1,0 +1,225 @@
+# Prometheus configuration for eBPF metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-ebpf
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'production'
+        component: 'ebpf'
+    
+    # eBPF Collectors
+    scrape_configs:
+      - job_name: 'ebpf-deployment-tracker'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - dora-system
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ebpf-collector
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: deployment-metrics
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+      
+      - job_name: 'ebpf-latency-tracker'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - dora-system
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ebpf-collector
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: latency-metrics
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+      
+      - job_name: 'ebpf-error-detector'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - dora-system
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ebpf-collector
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: error-metrics
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+    
+    # Alerting rules
+    rule_files:
+      - '/etc/prometheus/rules/*.yml'
+    
+    # Remote write for long-term storage
+    remote_write:
+      - url: 'http://thanos-receive:19291/api/v1/receive'
+        write_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'dora_.*'
+            action: keep
+---
+# Prometheus Rules for eBPF metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-ebpf-rules
+  namespace: monitoring
+data:
+  dora-ebpf.yml: |
+    groups:
+      - name: dora-ebpf
+        interval: 30s
+        rules:
+          # High error rate detected by eBPF
+          - alert: HighErrorRateEBPF
+            expr: |
+              rate(dora_errors_total[5m]) > 10
+            for: 2m
+            labels:
+              severity: critical
+              source: ebpf
+            annotations:
+              summary: "High error rate detected by eBPF"
+              description: "Service {{ $labels.service }} has {{ $value }} errors/sec"
+          
+          # Deployment surge detected
+          - alert: DeploymentSurge
+            expr: |
+              rate(dora_deployments_total[5m]) > 1
+            for: 5m
+            labels:
+              severity: warning
+              source: ebpf
+            annotations:
+              summary: "High deployment frequency detected"
+              description: "{{ $value }} deployments per second"
+          
+          # High latency detected
+          - alert: HighLatencyEBPF
+            expr: |
+              histogram_quantile(0.95, dora_http_request_duration_seconds_bucket) > 2
+            for: 5m
+            labels:
+              severity: warning
+              source: ebpf
+            annotations:
+              summary: "High request latency detected"
+              description: "P95 latency is {{ $value }}s for {{ $labels.service }}"
+          
+          # CPU scheduling issues
+          - alert: HighSchedulingLatency
+            expr: |
+              histogram_quantile(0.99, dora_scheduling_latency_microseconds_bucket) > 5000
+            for: 5m
+            labels:
+              severity: warning
+              source: ebpf
+            annotations:
+              summary: "High CPU scheduling latency"
+              description: "P99 scheduling latency is {{ $value }}μs"
+---
+# Grafana Dashboard for eBPF metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-ebpf
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  ebpf-dora-metrics.json: |
+    {
+      "dashboard": {
+        "title": "DORA Metrics - eBPF",
+        "uid": "ebpf-dora-metrics",
+        "panels": [
+          {
+            "title": "Deployment Frequency (eBPF)",
+            "targets": [
+              {
+                "expr": "sum(rate(dora_deployments_total[5m])) by (service)",
+                "legendFormat": "{{ service }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "title": "Request Latency P95 (eBPF)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(dora_http_request_duration_seconds_bucket[5m])) by (service, le))",
+                "legendFormat": "{{ service }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "title": "Error Rate (eBPF)",
+            "targets": [
+              {
+                "expr": "sum(rate(dora_errors_total[5m])) by (service, error_type)",
+                "legendFormat": "{{ service }} - {{ error_type }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "title": "MTTR (eBPF)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.5, sum(rate(dora_mttr_seconds_bucket[24h])) by (service, le))",
+                "legendFormat": "{{ service }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          },
+          {
+            "title": "CPU Usage by Process (eBPF)",
+            "targets": [
+              {
+                "expr": "topk(10, sum(rate(dora_task_runtime_seconds_sum[5m])) by (comm))",
+                "legendFormat": "{{ comm }}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "title": "I/O Latency Distribution (eBPF)",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(dora_io_latency_microseconds_bucket[5m])) by (le))",
+                "legendFormat": "P95"
+              },
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(dora_io_latency_microseconds_bucket[5m])) by (le))",
+                "legendFormat": "P99"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ]
+      }
+    }

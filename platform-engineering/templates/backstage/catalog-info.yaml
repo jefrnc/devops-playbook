@@ -1,0 +1,223 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: devops-metrics-service
+  description: DORA metrics collection and analysis service
+  tags:
+    - python
+    - metrics
+    - dora
+  links:
+    - url: https://example.com/dashboard
+      title: Metrics Dashboard
+      icon: dashboard
+    - url: https://github.com/jefrnc/devops-playbook
+      title: Source Code
+      icon: github
+  annotations:
+    github.com/project-slug: jefrnc/devops-playbook
+    backstage.io/techdocs-ref: dir:.
+    prometheus.io/rule: 'sum(rate(deployments_total[5m])) by (service)'
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: devops-metrics
+  dependsOn:
+    - resource:database/metrics-db
+    - resource:queue/metrics-queue
+  providesApis:
+    - metrics-api
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: metrics-api
+  description: REST API for DORA metrics
+  tags:
+    - rest
+    - metrics
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: DORA Metrics API
+      version: 1.0.0
+    paths:
+      /metrics/deployment-frequency:
+        get:
+          summary: Get deployment frequency metrics
+          parameters:
+            - name: start_date
+              in: query
+              schema:
+                type: string
+                format: date
+            - name: end_date
+              in: query
+              schema:
+                type: string
+                format: date
+          responses:
+            '200':
+              description: Deployment frequency data
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      daily_average:
+                        type: number
+                      total_deployments:
+                        type: integer
+                      performance_level:
+                        type: string
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: devops-metrics
+  description: Complete DevOps metrics platform
+  tags:
+    - devops
+    - metrics
+    - platform
+spec:
+  owner: platform-team
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: metrics-db
+  description: PostgreSQL database for metrics storage
+  tags:
+    - database
+    - postgresql
+spec:
+  type: database
+  owner: platform-team
+  system: devops-metrics
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: metrics-queue
+  description: Message queue for async metric processing
+  tags:
+    - queue
+    - rabbitmq
+spec:
+  type: queue
+  owner: platform-team
+  system: devops-metrics
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Template
+metadata:
+  name: dora-metrics-service
+  title: DORA Metrics Service
+  description: Create a new DORA metrics collector service
+  tags:
+    - recommended
+    - python
+    - metrics
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Service Information
+      required:
+        - name
+        - description
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name for the service
+          pattern: '^[a-z0-9-]+$'
+        description:
+          title: Description
+          type: string
+          description: What does this service do?
+    - title: Metrics Configuration
+      properties:
+        metrics:
+          title: Metrics to Collect
+          type: array
+          items:
+            type: string
+            enum:
+              - deployment_frequency
+              - lead_time
+              - mttr
+              - change_failure_rate
+          default:
+            - deployment_frequency
+            - lead_time
+        data_source:
+          title: Data Source
+          type: string
+          enum:
+            - github
+            - gitlab
+            - jenkins
+          default: github
+    - title: Infrastructure
+      properties:
+        database:
+          title: Database Type
+          type: string
+          enum:
+            - postgresql
+            - mysql
+            - mongodb
+          default: postgresql
+        monitoring:
+          title: Enable Monitoring
+          type: boolean
+          default: true
+          
+  steps:
+    - id: fetch
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          metrics: ${{ parameters.metrics }}
+          data_source: ${{ parameters.data_source }}
+          database: ${{ parameters.database }}
+          monitoring: ${{ parameters.monitoring }}
+          
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: github.com?owner=jefrnc&repo=${{ parameters.name }}
+        
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+        
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

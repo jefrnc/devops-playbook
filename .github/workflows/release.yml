@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Generate Changelog
+      id: changelog
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -z "$PREVIOUS_TAG" ]; then
+          CHANGES=$(git log --pretty=format:"- %s (%h)" --no-merges)
+        else
+          CHANGES=$(git log --pretty=format:"- %s (%h)" --no-merges ${PREVIOUS_TAG}..HEAD)
+        fi
+        
+        # Save to file for release body
+        cat > CHANGELOG.md << EOF
+        ## What's Changed
+        
+        ${CHANGES}
+        
+        ## DORA Metrics Scripts
+        - Deployment Frequency Calculator
+        - Lead Time for Changes Analyzer  
+        - MTTR (Mean Time to Recovery) Tracker
+        - Change Failure Rate Monitor
+        
+        ## Quick Start
+        \`\`\`bash
+        pip install -r scripts/requirements.txt
+        python scripts/DeploymentFrequency/deployment_frequency.py --help
+        \`\`\`
+        
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ github.ref_name }}
+        EOF
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
+
+  package-scripts:
+    name: Package Scripts
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Create script packages
+      run: |
+        # Create a packaged version of scripts
+        mkdir -p dist
+        
+        # Package each DORA metric script
+        for metric in DeploymentFrequency LeadTime MTTR ChangeFailureRate; do
+          tar -czf dist/dora-metrics-${metric,,}-${{ github.ref_name }}.tar.gz \
+            -C scripts ${metric}/ \
+            --transform "s|^|dora-metrics-${metric,,}-${{ github.ref_name }}/|"
+        done
+        
+        # Create all-in-one package
+        tar -czf dist/dora-metrics-complete-${{ github.ref_name }}.tar.gz \
+          scripts/ templates/ \
+          --transform "s|^|dora-metrics-${{ github.ref_name }}/|"
+    
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: dist/dora-metrics-complete-${{ github.ref_name }}.tar.gz
+        asset_name: dora-metrics-complete-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip
+
+  build-docker-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Build and push DORA metrics collector image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.metrics-collector
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/dora-metrics-collector:${{ github.ref_name }}
+          ghcr.io/${{ github.repository_owner }}/dora-metrics-collector:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  update-documentation:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main
+    
+    - name: Update version references
+      run: |
+        # Update version in documentation
+        sed -i "s/version: .*/version: ${{ github.ref_name }}/g" README.md
+        
+        # Update installation instructions
+        sed -i "s|devops-playbook@.*|devops-playbook@${{ github.ref_name }}|g" README.md
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "docs: update version to ${{ github.ref_name }}"
+        title: "Update documentation for release ${{ github.ref_name }}"
+        body: |
+          This PR updates the documentation to reference the latest release version.
+          
+          - Updates version numbers in README
+          - Updates installation instructions
+          
+          Auto-generated by release workflow.
+        branch: update-docs-${{ github.ref_name }}
+        delete-branch: true

@@ -1,0 +1,299 @@
+# Default values for dora-metrics
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  # Global image pull secrets
+  imagePullSecrets: []
+  # Global storage class
+  storageClass: ""
+
+# Operator configuration
+operator:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/jefrnc/dora-metrics-operator
+    pullPolicy: IfNotPresent
+    tag: ""  # Overrides the image tag whose default is the chart appVersion.
+  
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  podAnnotations: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    fsGroup: 65534
+  
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65534
+    capabilities:
+      drop:
+      - ALL
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Operator configuration
+  config:
+    logLevel: info
+    watchNamespace: ""  # Empty means watch all namespaces
+    leaderElection:
+      enabled: true
+      namespace: ""  # Uses release namespace if empty
+
+# Collectors configuration
+collectors:
+  # Deployment Frequency Collector
+  deploymentFrequency:
+    enabled: true
+    schedule: "*/15 * * * *"
+    image:
+      repository: ghcr.io/jefrnc/dora-deployment-frequency
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 200m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+  
+  # Lead Time Collector
+  leadTime:
+    enabled: true
+    schedule: "0 */6 * * *"
+    image:
+      repository: ghcr.io/jefrnc/dora-lead-time
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 200m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+  
+  # MTTR Collector
+  mttr:
+    enabled: true
+    schedule: "30 * * * *"
+    image:
+      repository: ghcr.io/jefrnc/dora-mttr
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 200m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+  
+  # Change Failure Rate Collector
+  changeFailureRate:
+    enabled: true
+    schedule: "0 0 * * *"
+    image:
+      repository: ghcr.io/jefrnc/dora-change-failure-rate
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+        cpu: 200m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+
+# Data sources configuration
+dataSources:
+  github:
+    enabled: false
+    organization: ""
+    repositories: []
+    # Secret containing 'token' key
+    credentialsSecret: ""
+  
+  gitlab:
+    enabled: false
+    url: https://gitlab.com
+    projects: []
+    credentialsSecret: ""
+  
+  jenkins:
+    enabled: false
+    url: ""
+    jobs: []
+    credentialsSecret: ""
+  
+  argocd:
+    enabled: false
+    url: ""
+    credentialsSecret: ""
+
+# Export configuration
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+      labels: {}
+      relabelings: []
+      metricRelabelings: []
+  
+  webhook:
+    enabled: false
+    url: ""
+    headers: {}
+    retries: 3
+    timeout: 30s
+
+# Storage configuration
+storage:
+  type: postgresql  # Options: memory, postgresql, redis
+  
+  # PostgreSQL configuration (if storage.type is postgresql)
+  postgresql:
+    enabled: true
+    auth:
+      username: dora
+      password: changeme
+      database: dora_metrics
+    primary:
+      persistence:
+        enabled: true
+        size: 8Gi
+        storageClass: ""
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+  
+  # Redis configuration (if storage.type is redis)
+  redis:
+    enabled: false
+    auth:
+      enabled: true
+      password: changeme
+    master:
+      persistence:
+        enabled: true
+        size: 8Gi
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/jefrnc/dora-dashboard
+    pullPolicy: IfNotPresent
+    tag: latest
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: dora.example.com
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: dora-tls
+    #    hosts:
+    #      - dora.example.com
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Monitoring configuration
+monitoring:
+  # Create ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    labels:
+      prometheus: kube-prometheus
+    interval: 30s
+  
+  # Grafana dashboards
+  grafanaDashboard:
+    enabled: true
+    labels:
+      grafana_dashboard: "1"
+    annotations:
+      k8s-sidecar-target-directory: "/var/lib/grafana/dashboards/dora"
+
+# RBAC configuration
+rbac:
+  create: true
+  # Additional rules for the operator
+  rules: []
+
+# Network Policies
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+      - protocol: TCP
+        port: 9090
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Tests configuration
+tests:
+  enabled: true
+  image:
+    repository: busybox
+    tag: latest
+    pullPolicy: IfNotPresent

@@ -1,0 +1,35 @@
+# AWS Provider Configuration
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: aws-credentials
+      key: credentials
+---
+# Alternative: Use IRSA (IAM Roles for Service Accounts)
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: aws-irsa
+spec:
+  credentials:
+    source: IRSA
+---
+# Production configuration with assume role
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: aws-production
+spec:
+  assumeRoleARN: "arn:aws:iam::ACCOUNT_ID:role/crossplane-production"
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: aws-credentials
+      key: credentials

@@ -1,0 +1,241 @@
+# OpenTelemetry Collector Configuration for DORA Metrics
+# This configuration enables collection of metrics, traces, and logs
+
+receivers:
+  # OTLP receiver for applications sending telemetry
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  
+  # Prometheus receiver to scrape DORA metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'dora-metrics'
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['dora-metrics-service:9090']
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: 'dora_.*'
+              action: keep
+  
+  # Host metrics for infrastructure monitoring
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+      disk:
+      load:
+      filesystem:
+      memory:
+      network:
+      process:
+  
+  # Kubernetes cluster metrics
+  k8s_cluster:
+    auth_type: serviceAccount
+    node_conditions_to_report: [Ready, MemoryPressure, DiskPressure]
+    allocatable_types_to_report: [cpu, memory]
+  
+  # File log receiver for application logs
+  filelog:
+    include: [ /var/log/dora-metrics/*.log ]
+    operators:
+      - type: regex_parser
+        regex: '^(?P<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?P<severity>\w+) (?P<message>.*)$'
+        timestamp:
+          parse_from: attributes.time
+          layout: '%Y-%m-%d %H:%M:%S'
+      - type: severity_parser
+        parse_from: attributes.severity
+
+processors:
+  # Batch processor to optimize data transmission
+  batch:
+    send_batch_size: 10000
+    timeout: 10s
+    send_batch_max_size: 11000
+  
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+  
+  # Resource processor to add metadata
+  resource:
+    attributes:
+      - key: service.name
+        value: dora-metrics
+        action: upsert
+      - key: deployment.environment
+        from_attribute: k8s.namespace.name
+        action: insert
+      - key: service.version
+        from_attribute: k8s.deployment.name
+        action: insert
+  
+  # Attributes processor for DORA metrics enrichment
+  attributes/dora:
+    actions:
+      - key: metric.type
+        value: dora
+        action: upsert
+      - key: team
+        from_attribute: k8s.namespace.labels.team
+        action: insert
+      - key: repository
+        from_attribute: k8s.deployment.labels.repository
+        action: insert
+  
+  # Transform processor for metric calculations
+  transform/dora:
+    metric_statements:
+      - context: metric
+        statements:
+          # Calculate deployment frequency per day
+          - set(name, "deployment_frequency_daily") where name == "deployment_count"
+          - set(unit, "1/d") where name == "deployment_frequency_daily"
+          
+          # Convert lead time to hours
+          - set(name, "lead_time_hours") where name == "lead_time_seconds"
+          - set(unit, "h") where name == "lead_time_hours"
+          - scale_value(1.0/3600) where name == "lead_time_hours"
+  
+  # Tail sampling for traces
+  tail_sampling:
+    decision_wait: 30s
+    num_traces: 100000
+    expected_new_traces_per_sec: 100
+    policies:
+      [
+        {
+          name: sample-errors,
+          type: status_code,
+          status_code: {status_codes: [ERROR]}
+        },
+        {
+          name: sample-slow,
+          type: latency,
+          latency: {threshold_ms: 1000}
+        },
+        {
+          name: sample-deployment,
+          type: string_attribute,
+          string_attribute: {key: operation, values: [deployment, rollback]}
+        }
+      ]
+
+exporters:
+  # Prometheus exporter for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8888"
+    const_labels:
+      service: "dora-metrics"
+    metric_expiration: 5m
+  
+  # OTLP exporter to send to backend
+  otlp/backend:
+    endpoint: otel-backend:4317
+    tls:
+      insecure: false
+      cert_file: /etc/otel/certs/cert.pem
+      key_file: /etc/otel/certs/key.pem
+    headers:
+      api-key: "${OTEL_API_KEY}"
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Jaeger exporter for traces
+  jaeger:
+    endpoint: jaeger-collector:14250
+    tls:
+      insecure: true
+  
+  # Logging exporter for debugging
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+  
+  # File exporter for backup
+  file:
+    path: /var/log/otel/metrics.json
+    rotation:
+      max_megabytes: 100
+      max_days: 7
+      max_backups: 3
+
+connectors:
+  # Span metrics connector to generate RED metrics
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+    dimensions:
+      - name: service.name
+      - name: operation
+      - name: status.code
+      - name: deployment.environment
+    metrics_expiration: 5m
+
+service:
+  pipelines:
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus, hostmetrics, k8s_cluster]
+      processors: [memory_limiter, batch, resource, attributes/dora, transform/dora]
+      exporters: [prometheus, otlp/backend, logging, file]
+    
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, tail_sampling]
+      exporters: [spanmetrics, jaeger, otlp/backend, logging]
+    
+    # Logs pipeline
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp/backend, logging]
+    
+    # Span metrics pipeline
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      exporters: [prometheus]
+  
+  extensions: [health_check, pprof, zpages]
+  
+  telemetry:
+    logs:
+      level: info
+      development: false
+      encoding: json
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: "/health"
+    check_collector_pipeline:
+      enabled: true
+      interval: 5s
+      exporter_failure_threshold: 5
+  
+  # Performance profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+  
+  # zPages for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679

@@ -1,0 +1,140 @@
+# Network policies for production security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dora-operator-netpol
+spec:
+  podSelector:
+    matchLabels:
+      app: dora-operator
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    # Allow from ingress controller
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    # Allow from monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    # Allow from same namespace
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow to GitHub API
+  - to:
+    - ipBlock:
+        cidr: 140.82.112.0/20  # GitHub API IPs
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow to GitLab API
+  - to:
+    - ipBlock:
+        cidr: 172.65.64.0/20  # GitLab API IPs
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow to AWS APIs
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow to OpenTelemetry Collector
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: opentelemetry
+    ports:
+    - protocol: TCP
+      port: 4317
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dora-dashboard-netpol
+spec:
+  podSelector:
+    matchLabels:
+      app: dora-dashboard
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+  - to:
+    - podSelector:
+        matchLabels:
+          app: dora-operator
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+# Default deny all ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress

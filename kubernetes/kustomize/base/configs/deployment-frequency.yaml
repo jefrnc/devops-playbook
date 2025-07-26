@@ -1,0 +1,82 @@
+# Deployment Frequency metric configuration
+metric_name: deployment_frequency
+description: "How often an organization successfully releases to production"
+
+data_sources:
+  github:
+    enabled: true
+    api_endpoint: "https://api.github.com"
+    events:
+      - deployment
+      - deployment_status
+    filters:
+      environment: ["production", "prod"]
+      status: "success"
+  
+  gitlab:
+    enabled: true
+    api_endpoint: "https://gitlab.com/api/v4"
+    events:
+      - deployment
+    filters:
+      environment: "production"
+      status: "success"
+  
+  argocd:
+    enabled: true
+    api_endpoint: "argocd-server.argocd:80"
+    applications:
+      - "*-production"
+    sync_status: "Synced"
+    health_status: "Healthy"
+  
+  jenkins:
+    enabled: false
+    api_endpoint: "http://jenkins:8080"
+    job_filter: ".*-deploy-prod"
+    result_filter: "SUCCESS"
+
+calculation:
+  # Time windows for aggregation
+  windows:
+    - name: "daily"
+      duration: "24h"
+    - name: "weekly"
+      duration: "7d"
+    - name: "monthly"
+      duration: "30d"
+  
+  # Aggregation method
+  aggregation: "sum"
+  
+  # Group by dimensions
+  group_by:
+    - service
+    - team
+    - repository
+
+alerts:
+  - name: "deployment_frequency_low"
+    condition: "daily_deployments < 1"
+    severity: "warning"
+    message: "No deployments in the last 24 hours"
+  
+  - name: "deployment_frequency_spike"
+    condition: "hourly_deployments > 10"
+    severity: "info"
+    message: "High deployment frequency detected"
+
+export:
+  prometheus:
+    metric_name: "dora_deployment_frequency"
+    labels:
+      - service
+      - environment
+      - team
+  
+  grafana:
+    dashboard_id: "deployment-frequency"
+    panel_type: "graph"
+    queries:
+      - "rate(dora_deployment_frequency[5m])"
+      - "sum(increase(dora_deployment_frequency[1d])) by (service)"

@@ -1,0 +1,65 @@
+# ClusterRole for DORA Operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dora-operator
+rules:
+- apiGroups: [""]
+  resources: ["namespaces", "services", "endpoints", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["metrics.devops.io"]
+  resources: ["dorametrics"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+# ClusterRoleBinding for DORA Operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dora-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dora-operator
+subjects:
+- kind: ServiceAccount
+  name: dora-operator
+  namespace: dora-system
+---
+# Role for metrics collector
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dora-metrics-collector
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+- apiGroups: ["metrics.devops.io"]
+  resources: ["dorametrics"]
+  verbs: ["get", "list", "create", "update", "patch"]
+---
+# RoleBinding for metrics collector
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dora-metrics-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dora-metrics-collector
+subjects:
+- kind: ServiceAccount
+  name: dora-metrics-collector
+  namespace: dora-system

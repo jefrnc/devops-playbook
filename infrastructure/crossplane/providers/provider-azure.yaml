@@ -1,0 +1,33 @@
+# Azure Provider for Crossplane
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure
+  annotations:
+    meta.crossplane.io/maintainer: "Upbound"
+    meta.crossplane.io/source: "github.com/upbound/provider-azure"
+    meta.crossplane.io/license: "Apache-2.0"
+    meta.crossplane.io/description: "Azure Provider for Crossplane"
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure:v0.38.0
+  controllerConfigRef:
+    name: provider-azure-config
+---
+# Controller configuration for Azure provider
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: provider-azure-config
+spec:
+  podSecurityContext:
+    fsGroup: 2000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  env:
+    - name: AZURE_ENVIRONMENT
+      value: "AzurePublicCloud"

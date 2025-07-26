@@ -1,0 +1,31 @@
+# Pod Disruption Budgets for production
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dora-operator-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: dora-operator
+  maxUnavailable: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dora-dashboard-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: dora-dashboard
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dora-metrics-collectors-pdb
+spec:
+  minAvailable: "50%"
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: metrics-collector

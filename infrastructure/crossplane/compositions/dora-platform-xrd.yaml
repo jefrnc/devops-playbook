@@ -1,0 +1,155 @@
+# Composite Resource Definition for DORA Platform
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xdoraplatforms.platform.dora.io
+  annotations:
+    meta.crossplane.io/description: "Complete DORA metrics platform infrastructure"
+spec:
+  group: platform.dora.io
+  names:
+    kind: XDORAPlatform
+    plural: xdoraplatforms
+  claimNames:
+    kind: DORAPlatform
+    plural: doraplatforms
+  connectionSecretKeys:
+    - kubeconfig
+    - cluster-endpoint
+    - cluster-ca
+    - database-endpoint
+    - database-password
+    - bucket-name
+    - monitoring-endpoint
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  region:
+                    type: string
+                    description: "Cloud region for deployment"
+                    default: "us-east-1"
+                  
+                  environment:
+                    type: string
+                    description: "Environment name"
+                    enum:
+                      - development
+                      - staging
+                      - production
+                    default: "development"
+                  
+                  cloudProvider:
+                    type: string
+                    description: "Cloud provider"
+                    enum:
+                      - aws
+                      - azure
+                      - gcp
+                    default: "aws"
+                  
+                  kubernetesVersion:
+                    type: string
+                    description: "Kubernetes version"
+                    default: "1.28"
+                  
+                  nodeCount:
+                    type: integer
+                    description: "Number of worker nodes"
+                    minimum: 1
+                    maximum: 100
+                    default: 3
+                  
+                  nodeSize:
+                    type: string
+                    description: "Node instance size"
+                    default: "t3.medium"
+                  
+                  databaseSize:
+                    type: string
+                    description: "Database instance size"
+                    default: "db.t3.medium"
+                  
+                  databaseStorage:
+                    type: integer
+                    description: "Database storage in GB"
+                    minimum: 20
+                    maximum: 1000
+                    default: 100
+                  
+                  enableHighAvailability:
+                    type: boolean
+                    description: "Enable HA for database and cluster"
+                    default: false
+                  
+                  enableBackup:
+                    type: boolean
+                    description: "Enable automated backups"
+                    default: true
+                  
+                  enableMonitoring:
+                    type: boolean
+                    description: "Deploy monitoring stack"
+                    default: true
+                  
+                  tags:
+                    type: object
+                    description: "Resource tags"
+                    additionalProperties:
+                      type: string
+                    default:
+                      platform: "dora"
+                      managed-by: "crossplane"
+                
+                required:
+                  - region
+                  - environment
+                  - cloudProvider
+            
+            required:
+              - parameters
+          
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                description: "Platform provisioning phase"
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+              
+              endpoints:
+                type: object
+                properties:
+                  cluster:
+                    type: string
+                    description: "Kubernetes cluster endpoint"
+                  database:
+                    type: string
+                    description: "Database endpoint"
+                  monitoring:
+                    type: string
+                    description: "Monitoring dashboard URL"

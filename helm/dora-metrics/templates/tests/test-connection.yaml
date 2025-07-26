@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "dora-metrics.fullname" . }}-test-connection"
+  labels:
+    {{- include "dora-metrics.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-operator
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing operator endpoint..."
+          wget -O- http://{{ include "dora-metrics.fullname" . }}-operator:8081/healthz || exit 1
+          echo "Operator health check passed"
+          
+    {{- if .Values.dashboard.enabled }}
+    - name: test-dashboard
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing dashboard endpoint..."
+          wget -O- http://{{ include "dora-metrics.fullname" . }}-dashboard:{{ .Values.dashboard.service.port }} || exit 1
+          echo "Dashboard test passed"
+    {{- end }}
+    
+    {{- if .Values.export.prometheus.enabled }}
+    - name: test-metrics
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing metrics endpoint..."
+          wget -O- http://{{ include "dora-metrics.fullname" . }}-metrics:{{ .Values.export.prometheus.port }}/metrics || exit 1
+          echo "Metrics endpoint test passed"
+    {{- end }}
+    
+    {{- if and .Values.storage.postgresql.enabled (eq .Values.storage.type "postgresql") }}
+    - name: test-postgresql
+      image: postgres:14-alpine
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing PostgreSQL connection..."
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h {{ include "dora-metrics.postgresql.host" . }} -U {{ .Values.storage.postgresql.auth.username }} -d {{ .Values.storage.postgresql.auth.database }} -c "SELECT 1" || exit 1
+          echo "PostgreSQL connection test passed"
+      env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "dora-metrics.fullname" . }}-postgresql
+              key: password
+    {{- end }}

@@ -1,0 +1,245 @@
+---
+# CRD for DORA Metrics Collection
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dorametrics.metrics.devops.io
+spec:
+  group: metrics.devops.io
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              datasource:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: ["github", "gitlab", "jenkins", "argocd"]
+                  config:
+                    type: object
+                    properties:
+                      endpoint:
+                        type: string
+                      credentialsSecret:
+                        type: string
+                      organization:
+                        type: string
+                      repositories:
+                        type: array
+                        items:
+                          type: string
+              metrics:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      enum: ["deployment-frequency", "lead-time", "mttr", "change-failure-rate"]
+                    enabled:
+                      type: boolean
+                    schedule:
+                      type: string
+              export:
+                type: object
+                properties:
+                  prometheus:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      port:
+                        type: integer
+                        default: 9090
+                  webhook:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      url:
+                        type: string
+              storage:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: ["memory", "postgresql", "redis"]
+                  config:
+                    type: object
+          status:
+            type: object
+            properties:
+              lastCollection:
+                type: string
+              metrics:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    value:
+                      type: number
+                    timestamp:
+                      type: string
+                    error:
+                      type: string
+    subresources:
+      status: {}
+  scope: Namespaced
+  names:
+    plural: dorametrics
+    singular: dorametric
+    kind: DORAMetric
+    shortNames:
+    - dora
+
+---
+# ServiceAccount for the operator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dora-metrics-operator
+  namespace: dora-system
+
+---
+# ClusterRole with necessary permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dora-metrics-operator
+rules:
+- apiGroups: ["metrics.devops.io"]
+  resources: ["dorametrics"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["metrics.devops.io"]
+  resources: ["dorametrics/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dora-metrics-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dora-metrics-operator
+subjects:
+- kind: ServiceAccount
+  name: dora-metrics-operator
+  namespace: dora-system
+
+---
+# Operator Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dora-metrics-operator
+  namespace: dora-system
+  labels:
+    app: dora-metrics-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dora-metrics-operator
+  template:
+    metadata:
+      labels:
+        app: dora-metrics-operator
+    spec:
+      serviceAccountName: dora-metrics-operator
+      containers:
+      - name: operator
+        image: ghcr.io/jefrnc/dora-metrics-operator:latest
+        imagePullPolicy: Always
+        env:
+        - name: WATCH_NAMESPACE
+          value: "" # Watch all namespaces
+        - name: OPERATOR_NAME
+          value: "dora-metrics-operator"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+---
+# Example DORAMetric resource
+apiVersion: metrics.devops.io/v1
+kind: DORAMetric
+metadata:
+  name: team-platform-metrics
+  namespace: default
+spec:
+  datasource:
+    type: github
+    config:
+      endpoint: https://api.github.com
+      credentialsSecret: github-token
+      organization: jefrnc
+      repositories:
+        - devops-playbook
+        - api-service
+        - frontend-app
+  metrics:
+    - name: deployment-frequency
+      enabled: true
+      schedule: "*/15 * * * *"
+    - name: lead-time
+      enabled: true
+      schedule: "0 */6 * * *"
+    - name: mttr
+      enabled: true
+      schedule: "30 * * * *"
+    - name: change-failure-rate
+      enabled: true
+      schedule: "0 0 * * *"
+  export:
+    prometheus:
+      enabled: true
+      port: 9090
+    webhook:
+      enabled: false
+  storage:
+    type: postgresql
+    config:
+      host: postgres.dora-system.svc.cluster.local
+      database: dora_metrics
+      credentialsSecret: postgres-credentials

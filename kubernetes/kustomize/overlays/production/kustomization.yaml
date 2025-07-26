@@ -1,0 +1,180 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Reference to base configuration
+bases:
+  - ../../base
+
+# Production namespace
+namespace: dora-production
+
+# Production-specific labels
+commonLabels:
+  environment: production
+  tier: platform
+
+# Name prefix for all resources
+namePrefix: prod-
+
+# Production patches
+patchesStrategicMerge:
+  - deployment-patch.yaml
+  - service-patch.yaml
+
+# Production-specific resources
+resources:
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+  - ingress.yaml
+
+# Production configuration
+configMapGenerator:
+  - name: dora-metrics-config
+    behavior: merge
+    literals:
+      - log_level=info
+      - metrics_retention=90d
+      - alert_threshold=critical
+      - deployment_frequency_schedule="*/5 * * * *"
+      - lead_time_schedule="0 */2 * * *"
+      - mttr_schedule="*/15 * * * *"
+      - change_failure_rate_schedule="0 */12 * * *"
+
+# Production secrets (using sealed secrets)
+secretGenerator:
+  - name: dora-credentials
+    behavior: replace
+    files:
+      - secrets/github-token.encrypted
+      - secrets/gitlab-token.encrypted
+      - secrets/pagerduty-token.encrypted
+      - secrets/slack-webhook.encrypted
+
+# Production images with specific tags
+images:
+  - name: dora-operator
+    newTag: v1.0.0-prod
+  - name: deployment-frequency-collector
+    newTag: v1.0.0-prod
+  - name: lead-time-collector
+    newTag: v1.0.0-prod
+  - name: mttr-collector
+    newTag: v1.0.0-prod
+  - name: change-failure-rate-collector
+    newTag: v1.0.0-prod
+
+# Production replicas
+replicas:
+  - name: dora-operator
+    count: 3
+  - name: dora-dashboard
+    count: 3
+
+# Production-specific patches
+patches:
+  # High availability for operator
+  - target:
+      kind: Deployment
+      name: dora-operator
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: add
+        path: /spec/template/spec/affinity
+        value:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - dora-operator
+              topologyKey: kubernetes.io/hostname
+  
+  # Production resource limits
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+  
+  # Production probes
+  - target:
+      kind: Deployment
+      name: ".*"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/livenessProbe
+        value:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      - op: add
+        path: /spec/template/spec/containers/0/readinessProbe
+        value:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+
+# Components to include
+components:
+  - ../../components/monitoring
+  - ../../components/security
+  - ../../components/backup
+
+# Helm chart inflator (if using Helm charts with Kustomize)
+helmCharts:
+  - name: postgresql
+    repo: https://charts.bitnami.com/bitnami
+    version: 12.1.9
+    releaseName: dora-postgresql
+    namespace: dora-production
+    valuesInline:
+      auth:
+        database: dora_metrics
+        username: dora
+      primary:
+        persistence:
+          size: 100Gi
+          storageClass: fast-ssd
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+      backup:
+        enabled: true
+        cronjob:
+          schedule: "0 2 * * *"
+
+# Transformers for production
+transformers:
+  - |-
+    apiVersion: builtin
+    kind: PrefixSuffixTransformer
+    metadata:
+      name: customSuffixer
+    suffix: "-prod"
+    fieldSpecs:
+      - kind: Deployment
+        path: metadata/name
+      - kind: Service
+        path: metadata/name

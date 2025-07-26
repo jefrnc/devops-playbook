@@ -1,0 +1,152 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dora-operator
+  labels:
+    app: dora-operator
+    app.kubernetes.io/name: dora-operator
+    app.kubernetes.io/component: operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dora-operator
+  template:
+    metadata:
+      labels:
+        app: dora-operator
+        app.kubernetes.io/name: dora-operator
+        app.kubernetes.io/component: operator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dora-operator
+      containers:
+      - name: dora-operator
+        image: dora-operator:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONFIG_PATH
+          value: "/config/config.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: credentials
+          mountPath: /secrets
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      volumes:
+      - name: config
+        configMap:
+          name: dora-metrics-config
+      - name: credentials
+        secret:
+          secretName: dora-credentials
+          defaultMode: 0400
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dora-dashboard
+  labels:
+    app: dora-dashboard
+    app.kubernetes.io/name: dora-dashboard
+    app.kubernetes.io/component: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dora-dashboard
+  template:
+    metadata:
+      labels:
+        app: dora-dashboard
+        app.kubernetes.io/name: dora-dashboard
+        app.kubernetes.io/component: dashboard
+    spec:
+      containers:
+      - name: dashboard
+        image: dora-dashboard:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: API_ENDPOINT
+          value: "http://dora-operator:8080"
+        - name: CONFIG_PATH
+          value: "/config/dashboard-config.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      volumes:
+      - name: config
+        configMap:
+          name: dora-metrics-config

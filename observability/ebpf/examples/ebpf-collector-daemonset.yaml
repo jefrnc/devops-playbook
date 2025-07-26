@@ -1,0 +1,305 @@
+# eBPF Collector DaemonSet for DORA Metrics
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dora-system
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ebpf-collector
+  namespace: dora-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ebpf-collector
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ebpf-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ebpf-collector
+subjects:
+- kind: ServiceAccount
+  name: ebpf-collector
+  namespace: dora-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ebpf-scripts
+  namespace: dora-system
+data:
+  start-collectors.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Starting eBPF DORA metrics collectors..."
+    
+    # Start collectors in background
+    python3 /opt/ebpf/deployment_tracker.py &
+    DEPLOYMENT_PID=$!
+    
+    python3 /opt/ebpf/latency_tracker.py &
+    LATENCY_PID=$!
+    
+    python3 /opt/ebpf/error_detector.py &
+    ERROR_PID=$!
+    
+    # Monitor processes
+    while true; do
+      if ! kill -0 $DEPLOYMENT_PID 2>/dev/null; then
+        echo "Deployment tracker died, restarting..."
+        python3 /opt/ebpf/deployment_tracker.py &
+        DEPLOYMENT_PID=$!
+      fi
+      
+      if ! kill -0 $LATENCY_PID 2>/dev/null; then
+        echo "Latency tracker died, restarting..."
+        python3 /opt/ebpf/latency_tracker.py &
+        LATENCY_PID=$!
+      fi
+      
+      if ! kill -0 $ERROR_PID 2>/dev/null; then
+        echo "Error detector died, restarting..."
+        python3 /opt/ebpf/error_detector.py &
+        ERROR_PID=$!
+      fi
+      
+      sleep 30
+    done
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ebpf-collector
+  namespace: dora-system
+  labels:
+    app: ebpf-collector
+    component: observability
+spec:
+  selector:
+    matchLabels:
+      app: ebpf-collector
+  template:
+    metadata:
+      labels:
+        app: ebpf-collector
+        component: observability
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ebpf-collector
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: ebpf-collector
+        image: ghcr.io/jefrnc/ebpf-dora-collector:latest
+        imagePullPolicy: Always
+        command: ["/bin/bash", "/scripts/start-collectors.sh"]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: deployment-metrics
+          containerPort: 9090
+          protocol: TCP
+        - name: latency-metrics
+          containerPort: 9091
+          protocol: TCP
+        - name: error-metrics
+          containerPort: 9092
+          protocol: TCP
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - BPF
+            - SYS_ADMIN
+            - SYS_RESOURCE
+            - NET_ADMIN
+            - SYS_PTRACE
+            - PERFMON
+        volumeMounts:
+        - name: ebpf-scripts
+          mountPath: /opt/ebpf
+        - name: startup-scripts
+          mountPath: /scripts
+        - name: sys
+          mountPath: /sys
+        - name: cgroup
+          mountPath: /sys/fs/cgroup
+        - name: debugfs
+          mountPath: /sys/kernel/debug
+        - name: bpffs
+          mountPath: /sys/fs/bpf
+        - name: localtime
+          mountPath: /etc/localtime
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "pgrep -f deployment_tracker.py && pgrep -f latency_tracker.py && pgrep -f error_detector.py"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      - name: metrics-aggregator
+        image: prom/prometheus:latest
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        - --web.enable-lifecycle
+        ports:
+        - name: prometheus
+          containerPort: 9093
+          protocol: TCP
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-storage
+          mountPath: /prometheus
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      volumes:
+      - name: ebpf-scripts
+        configMap:
+          name: ebpf-programs
+          defaultMode: 0755
+      - name: startup-scripts
+        configMap:
+          name: ebpf-scripts
+          defaultMode: 0755
+      - name: prometheus-config
+        configMap:
+          name: prometheus-ebpf-config
+      - name: prometheus-storage
+        emptyDir: {}
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup
+      - name: debugfs
+        hostPath:
+          path: /sys/kernel/debug
+      - name: bpffs
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-ebpf-config
+  namespace: dora-system
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    scrape_configs:
+    - job_name: 'ebpf-deployment'
+      static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: 'deployment-tracker'
+    
+    - job_name: 'ebpf-latency'
+      static_configs:
+      - targets: ['localhost:9091']
+        labels:
+          component: 'latency-tracker'
+    
+    - job_name: 'ebpf-errors'
+      static_configs:
+      - targets: ['localhost:9092']
+        labels:
+          component: 'error-detector'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ebpf-metrics
+  namespace: dora-system
+  labels:
+    app: ebpf-collector
+spec:
+  type: ClusterIP
+  ports:
+  - name: deployment
+    port: 9090
+    targetPort: 9090
+  - name: latency
+    port: 9091
+    targetPort: 9091
+  - name: errors
+    port: 9092
+    targetPort: 9092
+  - name: prometheus
+    port: 9093
+    targetPort: 9093
+  selector:
+    app: ebpf-collector
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ebpf-programs
+  namespace: dora-system
+data:
+  deployment_tracker.py: |
+    # Copy content from programs/deployment_tracker.py
+  latency_tracker.py: |
+    # Copy content from programs/latency_tracker.py
+  error_detector.py: |
+    # Copy content from programs/error_detector.py

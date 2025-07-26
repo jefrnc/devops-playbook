@@ -1,0 +1,47 @@
+# Example: Provision monitoring stack
+apiVersion: observability.dora.io/v1alpha1
+kind: MonitoringStack
+metadata:
+  name: dora-monitoring
+  namespace: default
+spec:
+  parameters:
+    cloudProvider: aws
+    region: us-east-1
+    clusterName: dora-eks-cluster
+    
+    # Storage configuration
+    storageSize: 200
+    retentionDays: 90
+    
+    # High availability
+    enableHighAvailability: true
+    
+    # Alert channels
+    alertChannels:
+      - type: slack
+        config:
+          webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+          channel: "#dora-alerts"
+      
+      - type: pagerduty
+        config:
+          integrationKey: "YOUR-PAGERDUTY-KEY"
+          severity: "critical"
+      
+      - type: email
+        config:
+          to: "platform-team@company.com"
+          from: "alerts@company.com"
+    
+    # Pre-configured dashboards
+    grafanaDashboards:
+      - dora-metrics
+      - kubernetes-cluster
+      - application-performance
+      - cost-analysis
+      - security-overview
+  
+  writeConnectionSecretToRef:
+    name: monitoring-credentials
+    namespace: dora-system
