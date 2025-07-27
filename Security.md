@@ -20,7 +20,7 @@ DevSecOps is the practice of integrating security into every phase of the softwa
 
 SAST analyzes source code for security vulnerabilities without executing the program.
 
-**Example: Integrating SAST with GitHub Actions**
+#### Example: Integrating SAST with GitHub Actions
 ```yaml
 name: Security Scan
 
@@ -74,7 +74,7 @@ jobs:
 
 DAST tests running applications for security vulnerabilities.
 
-**Example: OWASP ZAP in CI/CD Pipeline**
+#### Example: OWASP ZAP in CI/CD Pipeline
 ```yaml
 name: DAST Scan
 
@@ -151,7 +151,7 @@ CMD ["node", "--max-old-space-size=256", "server.js"]
 
 ### Container Image Scanning
 
-**Example: Trivy Integration**
+#### Example: Trivy Integration
 ```yaml
 name: Container Security Scan
 

@@ -69,7 +69,7 @@ my-infrastructure/
 
 ### Pulumi Examples
 
-**Example 1: Creating an S3 Bucket with Website Hosting (TypeScript)**
+#### Example 1: Creating an S3 Bucket with Website Hosting (TypeScript)
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
@@ -116,7 +116,7 @@ const indexHtml = new aws.s3.BucketObject("index.html", {
 export const websiteUrl = siteBucket.websiteEndpoint;
 ```
 
-**Example 2: Kubernetes Deployment with Pulumi (Python)**
+#### Example 2: Kubernetes Deployment with Pulumi (Python)
 ```python
 import pulumi
 from pulumi_kubernetes import Provider, apps, core
@@ -187,7 +187,7 @@ service = core.v1.Service(
 pulumi.export("service_endpoint", service.status["load_balancer"]["ingress"][0]["hostname"])
 ```
 
-**Example 3: Multi-Cloud Infrastructure with Pulumi (Go)**
+#### Example 3: Multi-Cloud Infrastructure with Pulumi (Go)
 ```go
 package main
 
@@ -258,7 +258,7 @@ func main() {
 }
 ```
 
-**Example 4: Component Resources - Reusable Infrastructure Patterns**
+#### Example 4: Component Resources - Reusable Infrastructure Patterns
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";

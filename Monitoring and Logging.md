@@ -75,7 +75,7 @@ scrape_configs:
 
 ### Setting Up Application Metrics
 
-**Example: Node.js Application with Prometheus Metrics**
+#### Example: Node.js Application with Prometheus Metrics
 ```javascript
 const express = require('express');
 const promClient = require('prom-client');
@@ -136,7 +136,7 @@ app.listen(3000, () => {
 });
 ```
 
-**Example: Python Application with Prometheus Metrics**
+#### Example: Python Application with Prometheus Metrics
 ```python
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from flask import Flask, Response
@@ -490,7 +490,7 @@ processors:
 
 ## Structured Logging Best Practices
 
-**Example: Structured Logging in Node.js with Winston**
+#### Example: Structured Logging in Node.js with Winston
 ```javascript
 const winston = require('winston');
 
@@ -545,7 +545,7 @@ app.use((req, res, next) => {
 });
 ```
 
-**Example: Structured Logging in Python**
+#### Example: Structured Logging in Python
 ```python
 import logging
 import json
@@ -706,7 +706,7 @@ inhibit_rules:
 
 For microservices architectures, distributed tracing is essential. Tools like Jaeger or Zipkin help track requests across multiple services.
 
-**Example: OpenTelemetry Setup in Node.js**
+#### Example: OpenTelemetry Setup in Node.js
 ```javascript
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');

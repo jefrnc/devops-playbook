@@ -222,4 +222,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Remember**: DevOps is a journey, not a destination. Start small, measure everything, and continuously improve. 🚀
 
-*Last updated: January 2025*
+Last updated: January 2025

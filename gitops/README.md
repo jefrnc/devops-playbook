@@ -53,7 +53,7 @@ See [argocd/example-app.yaml](./argocd/example-app.yaml) for a complete example.
 
 ## Flux v2 Implementation
 
-### Installation
+### Flux Installation
 
 ```bash
 flux bootstrap github \

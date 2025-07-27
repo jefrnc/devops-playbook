@@ -4,7 +4,7 @@ This directory contains Kustomize templates for deploying DORA metrics collectio
 
 ## Directory Structure
 
-```
+```text
 kustomize/
 ├── base/                    # Base configurations
 │   ├── configs/             # Metric configuration files
