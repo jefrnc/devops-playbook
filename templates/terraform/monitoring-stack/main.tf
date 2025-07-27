@@ -191,16 +191,16 @@ resource "kubernetes_manifest" "deployment_frequency_monitor" {
 
 # Output important values
 output "grafana_url" {
-  value = "https://grafana.example.com"
+  value       = "https://grafana.example.com"
   description = "Grafana dashboard URL"
 }
 
 output "prometheus_url" {
-  value = "http://prometheus-kube-prometheus-prometheus.${var.namespace}.svc.cluster.local:9090"
+  value       = "http://prometheus-kube-prometheus-prometheus.${var.namespace}.svc.cluster.local:9090"
   description = "Prometheus internal URL"
 }
 
 output "alertmanager_url" {
-  value = "http://prometheus-kube-prometheus-alertmanager.${var.namespace}.svc.cluster.local:9093"
+  value       = "http://prometheus-kube-prometheus-alertmanager.${var.namespace}.svc.cluster.local:9093"
   description = "AlertManager internal URL"
 }
