@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import boto3
 import json
 from datetime import datetime
+
+import boto3
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("DeploymentTimeTable")

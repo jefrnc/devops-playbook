@@ -4,23 +4,24 @@ Change Failure Rate Calculator
 Measures the percentage of deployments causing failures in production
 """
 
-import click
-import yaml
 import json
-import pandas as pd
-from datetime import datetime, timedelta
-from dateutil.parser import parse
-from typing import Dict, List, Optional, Tuple
+import logging
 import os
 import sys
-import logging
-from github import Github
-import gitlab
-import requests
-from tabulate import tabulate
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 import boto3
+import click
+import gitlab
+import pandas as pd
+import requests
+import yaml
+from dateutil.parser import parse
+from github import Github
+from tabulate import tabulate
 
 # Configure logging
 logging.basicConfig(

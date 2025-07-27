@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import boto3
 import datetime
+
+import boto3
 from dateutil.parser import parse
 
 # Configure your AWS profile and region

@@ -4,21 +4,22 @@ MTTR (Mean Time to Recovery) Calculator
 Measures the time to recover from production incidents
 """
 
-import click
-import yaml
 import json
-import pandas as pd
-from datetime import datetime, timedelta
-from dateutil.parser import parse
-from typing import Dict, List, Optional, Tuple
-import os
-import sys
 import logging
+import os
 import statistics
-import requests
-from tabulate import tabulate
-from dataclasses import dataclass, asdict
+import sys
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+import click
+import pandas as pd
+import requests
+import yaml
+from dateutil.parser import parse
+from tabulate import tabulate
 
 # Configure logging
 logging.basicConfig(

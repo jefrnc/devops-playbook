@@ -4,20 +4,21 @@ Lead Time for Changes Calculator
 Measures the time from code commit to production deployment
 """
 
-import click
-import yaml
 import json
-import pandas as pd
-from datetime import datetime, timedelta
-from dateutil.parser import parse
-from typing import Dict, List, Optional, Tuple
-import os
-import sys
 import logging
+import os
 import statistics
-from github import Github
+import sys
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+
+import click
 import gitlab
+import pandas as pd
 import requests
+import yaml
+from dateutil.parser import parse
+from github import Github
 from tabulate import tabulate
 
 # Configure logging

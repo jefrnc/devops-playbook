@@ -4,20 +4,21 @@ Deployment Frequency Calculator
 Calculates DORA deployment frequency metric from multiple sources
 """
 
-import boto3
-import click
-import yaml
 import json
-import pandas as pd
-from datetime import datetime, timedelta
-from dateutil.parser import parse
-from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+import logging
 import os
 import sys
-from tabulate import tabulate
+from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+import boto3
+import click
+import pandas as pd
+import yaml
+from dateutil.parser import parse
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-import logging
+from tabulate import tabulate
 
 # Configure logging
 logging.basicConfig(

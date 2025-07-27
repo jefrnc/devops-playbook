@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+import datetime
+
 import requests
 from requests.auth import HTTPBasicAuth
-import datetime
 
 # Set your JIRA API credentials and base URL
 jira_username = "your_jira_username"
