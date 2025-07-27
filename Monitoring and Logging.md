@@ -490,7 +490,7 @@ processors:
 
 ## Structured Logging Best Practices
 
-#### Example: Structured Logging in Node.js with Winston
+### Example: Structured Logging in Node.js with Winston
 ```javascript
 const winston = require('winston');
 
@@ -706,7 +706,7 @@ inhibit_rules:
 
 For microservices architectures, distributed tracing is essential. Tools like Jaeger or Zipkin help track requests across multiple services.
 
-#### Example: OpenTelemetry Setup in Node.js
+### Example: OpenTelemetry Setup in Node.js
 ```javascript
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');

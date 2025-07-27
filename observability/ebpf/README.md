@@ -12,7 +12,7 @@ This implementation uses eBPF to collect DORA metrics with minimal performance i
 
 ## Architecture
 
-```
+```text
 ┌─────────────────┐
 │   Application   │
 └────────┬────────┘

@@ -79,7 +79,7 @@ kubectl apply -k overlays/production
 mkdir -p overlays/custom-env
 ```
 
-2. Create kustomization.yaml:
+1. Create kustomization.yaml:
 ```yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
