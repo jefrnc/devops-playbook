@@ -1,4 +1,4 @@
-#\!/usr/bin/env python3
+# \!/usr/bin/env python3
 import boto3
 import datetime
 from dateutil.parser import parse
@@ -16,18 +16,11 @@ session = boto3.Session(profile_name=aws_profile, region_name=aws_region)
 cloudtrail = session.client("cloudtrail")
 
 # Set the filters for the CloudTrail logs
-lookup_attributes = [
-    {
-        "AttributeKey": "EventName",
-        "AttributeValue": "UpdateService"
-    }
-]
+lookup_attributes = [{"AttributeKey": "EventName", "AttributeValue": "UpdateService"}]
 
 paginator = cloudtrail.get_paginator("lookup_events")
 iterator = paginator.paginate(
-    StartTime=start_date,
-    EndTime=end_date,
-    LookupAttributes=lookup_attributes
+    StartTime=start_date, EndTime=end_date, LookupAttributes=lookup_attributes
 )
 
 # Count the number of successful deployments
@@ -42,3 +35,4 @@ for page in iterator:
 deployment_frequency = deployment_count
 
 print(f"Deployment Frequency: {deployment_frequency}")
+
