@@ -60,7 +60,7 @@ python lead_time.py --config custom_config.yaml
 
 ### Lead Time Calculation
 Lead time is calculated as:
-```
+```text
 Lead Time = Deployment Time - Commit Time
 ```
 
@@ -80,7 +80,7 @@ Lead Time = Deployment Time - Commit Time
 
 ## Output Example
 
-```
+```text
 LEAD TIME FOR CHANGES REPORT
 ==================================================
 

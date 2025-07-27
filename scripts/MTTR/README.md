@@ -59,7 +59,7 @@ python mttr_calculator.py --config production_config.yaml
 ## Understanding MTTR
 
 ### Calculation
-```
+```text
 MTTR = (Incident Resolved Time - Incident Created Time) / Number of Incidents
 ```
 
@@ -81,7 +81,7 @@ MTTR = (Incident Resolved Time - Incident Created Time) / Number of Incidents
 ## API Configuration
 
 ### PagerDuty
-1. Generate API key: https://support.pagerduty.com/docs/api-access-keys
+1. Generate API key: [PagerDuty API Access Keys](https://support.pagerduty.com/docs/api-access-keys)
 2. Required permissions: Read access to incidents
 3. Set environment variable: `export PAGERDUTY_TOKEN=your_token`
 
@@ -109,7 +109,7 @@ MTTR = (Incident Resolved Time - Incident Created Time) / Number of Incidents
 
 ## Output Example
 
-```
+```text
 MEAN TIME TO RECOVERY (MTTR) REPORT
 ==================================================
 
