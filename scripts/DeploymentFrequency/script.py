@@ -1,4 +1,4 @@
-# \!/usr/bin/env python3
+#!/usr/bin/env python3
 import boto3
 import datetime
 from dateutil.parser import parse
@@ -35,4 +35,3 @@ for page in iterator:
 deployment_frequency = deployment_count
 
 print(f"Deployment Frequency: {deployment_frequency}")
-

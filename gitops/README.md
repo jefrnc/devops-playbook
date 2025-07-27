@@ -103,7 +103,7 @@ metadata:
 
 ## Multi-Environment Setup
 
-```
+```text
 .
 ├── environments/
 │   ├── dev/

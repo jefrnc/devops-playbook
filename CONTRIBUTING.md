@@ -206,7 +206,7 @@ def process_deployment(deployment_id: str) -> DeploymentResult:
 
 Follow the conventional commits specification:
 
-```
+```text
 feat: add support for GitLab CI in deployment frequency calculator
 fix: correct timezone handling in MTTR calculations
 docs: add troubleshooting guide for AWS authentication

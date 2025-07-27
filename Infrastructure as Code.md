@@ -57,7 +57,7 @@ choco install pulumi
 ```
 
 **Basic Pulumi Project Structure:**
-```
+```text
 my-infrastructure/
 ├── Pulumi.yaml          # Project metadata
 ├── Pulumi.dev.yaml      # Stack-specific configuration

@@ -1,4 +1,4 @@
-# \!/usr/bin/env python3
+#!/usr/bin/env python3
 import requests
 from requests.auth import HTTPBasicAuth
 import datetime
@@ -55,4 +55,3 @@ resolution_times = [calculate_resolution_time(issue) for issue in issues]
 mttr = sum(resolution_times) / len(resolution_times)
 
 print(f"Mean Time To Resolve (MTTR): {mttr:.2f} hours")
-

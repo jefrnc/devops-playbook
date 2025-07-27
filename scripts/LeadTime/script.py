@@ -1,4 +1,4 @@
-# \!/usr/bin/env python3
+#!/usr/bin/env python3
 import requests
 from requests.auth import HTTPBasicAuth
 import datetime
@@ -53,4 +53,3 @@ lead_times = [calculate_lead_time(issue) for issue in issues]
 average_lead_time = sum(lead_times) / len(lead_times)
 
 print(f"Average Lead Time: {average_lead_time} days")
-

@@ -67,7 +67,7 @@ python deployment_frequency.py --report
 ```
 
 ### Example Output
-```
+```text
 DEPLOYMENT FREQUENCY REPORT
 ============================================================
 Period: 2024-01-01 to 2024-01-31

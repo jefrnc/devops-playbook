@@ -491,4 +491,3 @@ def main(config, output, output_file, push_gateway, report):
 
 if __name__ == "__main__":
     main()
-

@@ -1,4 +1,4 @@
-# \!/usr/bin/env python3
+#!/usr/bin/env python3
 import boto3
 
 dynamodb = boto3.resource("dynamodb")
@@ -15,4 +15,3 @@ change_failure_rate = len(failed_deployments) / (
 )
 
 print(f"Change Failure Rate: {change_failure_rate:.2%}")
-

@@ -1,4 +1,4 @@
-# \!/usr/bin/env python3
+#!/usr/bin/env python3
 import boto3
 import json
 from datetime import datetime
@@ -27,4 +27,3 @@ def lambda_handler(event, context):
     )
 
     print(f"Stored deployment information: {response}")
-

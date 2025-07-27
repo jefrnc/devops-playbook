@@ -8,7 +8,7 @@ This directory contains Crossplane configurations for provisioning infrastructur
 
 ## Architecture
 
-```
+```text
 crossplane/
 ├── providers/          # Cloud provider configurations
 ├── compositions/       # XR compositions for reusable infrastructure
