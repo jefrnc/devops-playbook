@@ -122,22 +122,22 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## 📚 Learning Path
 
 ### 🌱 Beginners
-1. Start with [DevOps Culture and Transformation](#devops-culture-and-transformation)
-2. Master [Continuous Integration and Delivery](#continuous-integration-and-delivery)
-3. Learn [Infrastructure as Code](#infrastructure-as-code)
-4. Implement [Monitoring and Logging](#monitoring-and-logging)
+1. Start with [DevOps Culture and Transformation](./DevOps%20Culture%20and%20Transformation.md)
+2. Master [Continuous Integration and Delivery](./Continuous%20Integration%20and%20Delivery.md)
+3. Learn [Infrastructure as Code](./Infrastructure%20as%20Code.md)
+4. Implement [Monitoring and Logging](./Monitoring%20and%20Logging.md)
 
 ### 🚀 Intermediate
-1. Explore [Microservices and Containerization](#microservices-and-containerization)
-2. Implement [Security Best Practices](#security)
-3. Study [Site Reliability Engineering](#site-reliability-engineering)
-4. Choose the right [DevOps Tools](#devops-tools-and-technologies)
+1. Explore [Microservices and Containerization](./Microservices%20and%20Containerization.md)
+2. Implement [Security Best Practices](./Security.md)
+3. Study [Site Reliability Engineering](./Site%20Reliability%20Engineering%20(SRE).md)
+4. Choose the right [DevOps Tools](./DevOps%20Tools%20and%20Technologies.md)
 
 ### 🏆 Advanced
-1. Design [Serverless Architectures](#serverless-architectures)
+1. Design [Serverless Architectures](./Serverless%20Architectures.md)
 2. Implement [AI-Powered Operations](./AI%20and%20Machine%20Learning%20in%20DevOps.md)
-3. Scale with [Enterprise DevOps](#scaling-devops-for-large-organizations)
-4. Master [FinOps](#finops) for cost optimization
+3. Scale with [Enterprise DevOps](./Scaling%20DevOps%20for%20Large%20Organizations.md)
+4. Master [FinOps](./README.md#finops) for cost optimization
 
 ## 🔑 Core DevOps Principles
 
