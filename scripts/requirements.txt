@@ -1,0 +1,11 @@
+boto3==1.26.137
+botocore==1.29.137
+requests==2.31.0
+PyYAML==6.0
+pandas==2.0.3
+python-dateutil==2.8.2
+matplotlib==3.7.2
+seaborn==0.12.2
+pytest==8.4.1
+pytest-mock==3.14.1
+pytest-cov==6.2.1
