@@ -1,0 +1,126 @@
+# Flux v2 GitRepository Source Example
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: app-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/example/app-repo
+  ref:
+    branch: main
+  # Optional: Authentication
+  # secretRef:
+  #   name: git-credentials
+---
+# Kustomization to deploy from the GitRepository
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app-deployment
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: app-repo
+  # Optional: Validation
+  validation: client
+  # Optional: Health checks
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: app
+      namespace: default
+  # Optional: Post-build variable substitution
+  # postBuild:
+  #   substitute:
+  #     cluster_env: "production"
+---
+# HelmRepository Source Example
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://charts.bitnami.com/bitnami
+---
+# HelmRelease Example
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: nginx
+  namespace: default
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: nginx
+      version: '15.x'
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+  values:
+    service:
+      type: ClusterIP
+    replicaCount: 2
+---
+# ImageRepository for automated image updates
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: app-image
+  namespace: flux-system
+spec:
+  image: myregistry.io/app
+  interval: 5m
+  # Optional: Authentication
+  # secretRef:
+  #   name: registry-credentials
+---
+# ImagePolicy for selecting image tags
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: app-policy
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: app-image
+  policy:
+    semver:
+      range: '>=1.0.0 <2.0.0'
+---
+# ImageUpdateAutomation for automated Git commits
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: app-update
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: app-repo
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxbot@example.com
+        name: Flux Bot
+      messageTemplate: |
+        Automated image update
+        
+        [ci skip]
+    push:
+      branch: main
+  update:
+    path: "./manifests"
+    strategy: Setters
