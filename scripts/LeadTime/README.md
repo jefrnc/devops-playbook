@@ -65,6 +65,7 @@ Lead Time = Deployment Time - Commit Time
 ```
 
 ### Performance Levels
+
 | Level | Lead Time for Changes |
 |-------|----------------------|
 | Elite | Less than one hour |

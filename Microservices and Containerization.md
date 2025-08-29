@@ -929,7 +929,7 @@ def process_order():
 11. **Logs**: Treat logs as event streams
 12. **Admin processes**: Run admin/management tasks as one-off processes
 
-### Security Best Practices
+### Container Security Best Practices
 
 #### Container Security Checklist
 - [ ] Use minimal base images (alpine, distroless)
@@ -979,7 +979,7 @@ spec:
 ### Testing Strategies
 
 #### Testing Pyramid for Microservices
-```
+```text
          /\
         /  \  E2E Tests (5%)
        /    \

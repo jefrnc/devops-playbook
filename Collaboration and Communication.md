@@ -797,7 +797,7 @@ Auto-generated API documentation for {service}
 
 ## Authentication
 All API requests require authentication via Bearer token:
-```
+```bash
 Authorization: Bearer <token>
 ```
 
@@ -842,6 +842,7 @@ Create a new {resource}
 ```
 
 ## Error Responses
+
 | Code | Description |
 |------|-------------|
 | 400 | Bad Request |
@@ -868,10 +869,10 @@ curl -X POST \\
 ```
 """
         return template.format(service=service, resource=f"{service}-resources")
-    
-    def generate_architecture_docs(self, system: str) -> str:
-        """Generate architecture documentation"""
-        return f"""# {system} Architecture
+
+def generate_architecture_docs(self, system: str) -> str:
+    """Generate architecture documentation"""
+    return f"""# {system} Architecture
 
 ## System Overview
 ```mermaid
@@ -925,7 +926,7 @@ graph TB
 - **Logs**: ELK Stack
 - **Tracing**: Jaeger
 """
-    
+
     def create_documentation_pipeline(self) -> dict:
         """Create documentation generation pipeline"""
         return {
@@ -965,7 +966,7 @@ graph TB
                 }
             ]
         }
-```
+```python
 
 ## Knowledge Sharing Strategies
 

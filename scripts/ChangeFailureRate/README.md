@@ -9,7 +9,7 @@ The Change Failure Rate (CFR) is one of the four DORA metrics that measures the 
 Change Failure Rate represents the stability of your deployment process. It answers the question: "What percentage of our deployments result in degraded service?"
 
 ### Formula
-```
+```text
 Change Failure Rate = (Failed Deployments / Total Deployments) × 100
 ```
 

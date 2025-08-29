@@ -64,6 +64,7 @@ MTTR = (Incident Resolved Time - Incident Created Time) / Number of Incidents
 ```
 
 ### Performance Levels
+
 | Level | MTTR |
 |-------|------|
 | Elite | Less than one hour |

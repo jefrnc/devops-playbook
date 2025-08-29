@@ -221,7 +221,7 @@ Now stop reading and go automate something. Your future on-call self will thank 
 
 ---
 
-*"It's not DNS. There's no way it's DNS. It was DNS."*
+### "It's not DNS. There's no way it's DNS. It was DNS."
 
 **May your builds be green, your deployments be fast, and your pagers be silent.**
 

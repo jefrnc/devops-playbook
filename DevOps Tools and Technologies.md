@@ -178,7 +178,7 @@ export class MicroserviceStack extends pulumi.ComponentResource {
 }
 ```
 
-2. **Stack Configuration**: Separate environments
+1. **Stack Configuration**: Separate environments
 ```bash
 pulumi stack init dev
 pulumi config set aws:region us-east-1
@@ -189,7 +189,7 @@ pulumi config set aws:region us-west-2
 pulumi config set instanceType t3.large
 ```
 
-3. **Policy as Code**: Enforce compliance
+1. **Policy as Code**: Enforce compliance
 ```typescript
 new pulumi.policy.PolicyPack("security-policies", {
     policies: [{
@@ -275,6 +275,7 @@ new pulumi.policy.PolicyPack("security-policies", {
 ### The Three Pillars
 
 #### 1. Metrics
+
 | Tool | Type | Strengths | Best For |
 |------|------|-----------|----------|
 | **Prometheus + Grafana** | Open source | Kubernetes native, powerful queries | Cloud-native monitoring |
@@ -284,6 +285,7 @@ new pulumi.policy.PolicyPack("security-policies", {
 | **Azure Monitor** | Azure | Azure integration | Azure workloads |
 
 #### 2. Logging
+
 | Tool | Use Case | Scalability | Cost |
 |------|----------|-------------|------|
 | **ELK Stack** | Self-hosted full-text search | High | Infrastructure cost |

@@ -52,6 +52,7 @@ Foster a culture of innovation:
 - **Tool Sprawl Audit**: Document existing tools and their effectiveness
 
 #### Maturity Model
+
 | Level | Characteristics | Focus Areas |
 |-------|----------------|-------------|
 | **Initial** | Silos, manual processes, reactive | Basic automation, team alignment |
@@ -79,7 +80,7 @@ Foster a culture of innovation:
 #### Organizational Structure
 
 **Traditional Structure** → **DevOps Structure**
-```
+```text
 Dev Team | QA Team | Ops Team     Cross-functional Product Teams
     ↓        ↓         ↓          with embedded Dev, QA, Ops, Security
  Handoffs  Delays   Conflicts  →  Shared ownership and accountability
@@ -140,6 +141,7 @@ Dev Team | QA Team | Ops Team     Cross-functional Product Teams
 ### Cultural Metrics
 
 #### Westrum Organizational Culture Model
+
 | Type | Characteristics | Indicators |
 |------|----------------|------------|
 | **Pathological** | Power-oriented, low cooperation | Information hidden, failures punished |
