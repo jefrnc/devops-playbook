@@ -156,7 +156,7 @@ jobs:
     - name: Check for broken links
       uses: lycheeverse/lychee-action@v2.0.2
       with:
-        args: --verbose --no-progress './**/*.md'
+        args: "--base . --verbose --no-progress './**/*.md'"
         fail: false  # Don't fail on broken links, just report
 
   security-scan:
