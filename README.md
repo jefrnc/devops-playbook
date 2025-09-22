@@ -23,7 +23,11 @@ This repository contains a comprehensive guide for implementing DevOps in your o
 ### Advanced Topics
 - [GitOps](./gitops/README.md) - Git-based operations and deployments
 - [Platform Engineering](./platform-engineering/README.md) - Building internal developer platforms
-- [AI and Machine Learning in DevOps](./AI%20and%20Machine%20Learning%20in%20DevOps.md) - ML-powered DevOps
+- [AI and Machine Learning in DevOps](./AI%20and%20Machine%20Learning%20in%20DevOps.md) - ML-powered DevOps and AIOps
+- [Developer Experience and SPACE Framework](./Developer%20Experience%20and%20SPACE%20Framework.md) - Measuring and improving developer productivity
+- [Edge Computing and IoT DevOps](./Edge%20Computing%20and%20IoT%20DevOps.md) - Distributed computing at the edge
+- [FinOps - Cloud Financial Operations](./FinOps%20-%20Cloud%20Financial%20Operations.md) - Cloud cost optimization and financial management
+- [Green DevOps and Carbon-Aware Computing](./Green%20DevOps%20and%20Carbon-Aware%20Computing.md) - Sustainable DevOps practices and environmental optimization
 - [Blockchain and Distributed Ledger Technologies in DevOps](./Blockchain%20and%20Distributed%20Ledger%20Technologies%20in%20DevOps.md) - Blockchain integration
 
 ### Operations & Management
