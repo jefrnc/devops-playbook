@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import datetime
+import os
 
 import requests
 from requests.auth import HTTPBasicAuth
 
-# Set your JIRA API credentials and base URL
-jira_username = "your_jira_username"
-jira_password = "your_jira_password"
-jira_base_url = "https://your_jira_instance.atlassian.net"
+# Load JIRA API credentials and base URL from environment variables
+jira_username = os.environ.get("JIRA_USERNAME", "")
+jira_password = os.environ.get("JIRA_PASSWORD", "")
+jira_base_url = os.environ.get("JIRA_BASE_URL", "https://your_jira_instance.atlassian.net")
 
 # Set the JQL query to get the relevant issues (adjust the query as needed)
 jql_query = "project = YOUR_PROJECT_KEY AND issuetype = Story AND status = Deployed"
