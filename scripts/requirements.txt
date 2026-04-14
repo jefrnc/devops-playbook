@@ -6,6 +6,6 @@ pandas==2.0.3
 python-dateutil==2.8.2
 matplotlib==3.7.2
 seaborn==0.12.2
-pytest==8.4.1
+pytest==9.0.3
 pytest-mock==3.14.1
 pytest-cov==6.2.1
