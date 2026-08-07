@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/jefrnc/devops-playbook/graphs/commit-activity)
-[![Twitter Follow](https://img.shields.io/twitter/follow/jefrnc?style=social)](https://twitter.com/jefrnc)
+[![X](https://img.shields.io/badge/X-@birratrades-000000?logo=x&logoColor=white)](https://x.com/birratrades)
 
 > 📚 A comprehensive, production-ready guide to implementing DevOps practices, featuring real-world examples, automated DORA metrics calculators, and battle-tested strategies.
 
